@@ -11,6 +11,13 @@ const initialState = {
     totalRevenue: 0,
     recentActivity: [],
   },
+  detailedAnalytics: {
+    coursePopularity: [],
+    userRoleDistribution: [],
+    enrollmentTrends: [],
+    revenueByCategory: [],
+    completionRates: [],
+  },
   loading: false,
   error: null,
   selectedCourse: null,
@@ -340,6 +347,168 @@ export const fetchAnalytics = createAsyncThunk(
   }
 )
 
+export const fetchDetailedAnalytics = createAsyncThunk(
+  'admin/fetchDetailedAnalytics',
+  async (_, { rejectWithValue }) => {
+    try {
+      // Fetch course popularity (courses with most enrollments)
+      let coursePopularity = []
+      try {
+        const { data: popularCourses, error: popularCoursesError } = await supabase
+          .from('courses')
+          .select(`
+            id,
+            title,
+            enrollments:enrollments(count)
+          `)
+          .order('created_at', { ascending: false })
+          .limit(10)
+        
+        if (popularCoursesError) {
+          console.error('Course popularity fetch error:', popularCoursesError)
+        } else {
+          coursePopularity = (popularCourses || []).map(course => ({
+            id: course.id,
+            title: course.title,
+            enrollments: course.enrollments?.[0]?.count || 0
+          })).sort((a, b) => b.enrollments - a.enrollments)
+        }
+      } catch (error) {
+        console.error('Error fetching course popularity:', error)
+      }
+
+      // Fetch user role distribution
+      let userRoleDistribution = []
+      try {
+        const { data: roleData, error: roleError } = await supabase
+          .from('profiles')
+          .select('role')
+        
+        if (roleError) {
+          console.error('User role distribution fetch error:', roleError)
+        } else {
+          const roleCounts = (roleData || []).reduce((acc, user) => {
+            const role = user.role || 'student'
+            acc[role] = (acc[role] || 0) + 1
+            return acc
+          }, {})
+          
+          userRoleDistribution = Object.entries(roleCounts).map(([role, count]) => ({
+            role,
+            count
+          }))
+        }
+      } catch (error) {
+        console.error('Error fetching user role distribution:', error)
+      }
+
+      // Fetch enrollment trends (enrollments over time)
+      let enrollmentTrends = []
+      try {
+        const { data: enrollmentData, error: enrollmentError } = await supabase
+          .from('enrollments')
+          .select('enrolled_at')
+          .order('enrolled_at', { ascending: true })
+        
+        if (enrollmentError) {
+          console.error('Enrollment trends fetch error:', enrollmentError)
+        } else {
+          // Group enrollments by month
+          const monthlyEnrollments = (enrollmentData || []).reduce((acc, enrollment) => {
+            const date = new Date(enrollment.enrolled_at)
+            const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+            acc[monthKey] = (acc[monthKey] || 0) + 1
+            return acc
+          }, {})
+          
+          enrollmentTrends = Object.entries(monthlyEnrollments).map(([month, count]) => ({
+            month,
+            enrollments: count
+          }))
+        }
+      } catch (error) {
+        console.error('Error fetching enrollment trends:', error)
+      }
+
+      // Fetch revenue by category
+      let revenueByCategory = []
+      try {
+        const { data: categoryRevenue, error: categoryError } = await supabase
+          .from('courses')
+          .select(`
+            price,
+            category:categories(name)
+          `)
+        
+        if (categoryError) {
+          console.error('Revenue by category fetch error:', categoryError)
+        } else {
+          const categoryTotals = (categoryRevenue || []).reduce((acc, course) => {
+            const categoryName = course.category?.name || 'Uncategorized'
+            const price = parseFloat(course.price) || 0
+            acc[categoryName] = (acc[categoryName] || 0) + price
+            return acc
+          }, {})
+          
+          revenueByCategory = Object.entries(categoryTotals).map(([category, revenue]) => ({
+            category,
+            revenue: revenue.toFixed(2)
+          }))
+        }
+      } catch (error) {
+        console.error('Error fetching revenue by category:', error)
+      }
+
+      // Fetch completion rates
+      let completionRates = []
+      try {
+        const { data: completionData, error: completionError } = await supabase
+          .from('enrollments')
+          .select(`
+            completed_at,
+            course:courses(title)
+          `)
+        
+        if (completionError) {
+          console.error('Completion rates fetch error:', completionError)
+        } else {
+          const courseCompletions = (completionData || []).reduce((acc, enrollment) => {
+            const courseTitle = enrollment.course?.title || 'Unknown Course'
+            if (!acc[courseTitle]) {
+              acc[courseTitle] = { total: 0, completed: 0 }
+            }
+            acc[courseTitle].total += 1
+            if (enrollment.completed_at) {
+              acc[courseTitle].completed += 1
+            }
+            return acc
+          }, {})
+          
+          completionRates = Object.entries(courseCompletions).map(([course, stats]) => ({
+            course,
+            completionRate: stats.total > 0 ? ((stats.completed / stats.total) * 100).toFixed(1) : '0.0',
+            totalEnrollments: stats.total,
+            completedEnrollments: stats.completed
+          }))
+        }
+      } catch (error) {
+        console.error('Error fetching completion rates:', error)
+      }
+
+      return {
+        coursePopularity,
+        userRoleDistribution,
+        enrollmentTrends,
+        revenueByCategory,
+        completionRates,
+      }
+    } catch (error) {
+      console.error('Error in fetchDetailedAnalytics:', error)
+      return rejectWithValue(error.message || 'Failed to fetch detailed analytics')
+    }
+  }
+)
+
 const adminSlice = createSlice({
   name: 'admin',
   initialState,
@@ -481,6 +650,20 @@ const adminSlice = createSlice({
         state.loading = false
         state.error = action.payload
         // Keep existing analytics data on error
+      })
+      // Fetch Detailed Analytics
+      .addCase(fetchDetailedAnalytics.pending, (state) => {
+        state.loading = true
+        state.error = null
+      })
+      .addCase(fetchDetailedAnalytics.fulfilled, (state, action) => {
+        state.loading = false
+        state.detailedAnalytics = action.payload
+      })
+      .addCase(fetchDetailedAnalytics.rejected, (state, action) => {
+        state.loading = false
+        state.error = action.payload
+        // Keep existing detailed analytics data on error
       })
   },
 })
