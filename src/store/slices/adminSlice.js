@@ -175,66 +175,110 @@ export const fetchAnalytics = createAsyncThunk(
   'admin/fetchAnalytics',
   async (_, { rejectWithValue }) => {
     try {
-      // Fetch total counts with proper error handling
-      const [usersResult, coursesResult, enrollmentsResult] = await Promise.allSettled([
-        supabase.from('profiles').select('*', { count: 'exact', head: true }),
-        supabase.from('courses').select('*', { count: 'exact', head: true }),
-        supabase.from('enrollments').select('*', { count: 'exact', head: true }),
-      ])
+      console.log('Fetching analytics data...')
       
-      // Extract counts with fallbacks
-      const usersCount = usersResult.status === 'fulfilled' ? usersResult.value.count : 0
-      const coursesCount = coursesResult.status === 'fulfilled' ? coursesResult.value.count : 0
-      const enrollmentsCount = enrollmentsResult.status === 'fulfilled' ? enrollmentsResult.value.count : 0
-      
-      // Fetch recent activity with error handling
-      let recentActivity = []
-      try {
-        const { data: activityData, error: activityError } = await supabase
+      // Fetch all counts in parallel with better error handling
+      const [usersResult, coursesResult, enrollmentsResult, recentActivityResult] = await Promise.allSettled([
+        // Get total users count
+        supabase
+          .from('profiles')
+          .select('id', { count: 'exact', head: true }),
+        
+        // Get total courses count
+        supabase
+          .from('courses')
+          .select('id', { count: 'exact', head: true }),
+        
+        // Get total enrollments count
+        supabase
+          .from('enrollments')
+          .select('id', { count: 'exact', head: true }),
+        
+        // Get recent activity
+        supabase
           .from('enrollments')
           .select(`
-            *,
-            user:profiles(first_name, last_name),
-            course:courses(title)
+            id,
+            enrolled_at,
+            user:profiles!enrollments_user_id_fkey(
+              first_name,
+              last_name,
+              email
+            ),
+            course:courses!enrollments_course_id_fkey(
+              title,
+              slug
+            )
           `)
           .order('enrolled_at', { ascending: false })
           .limit(10)
-        
-        if (activityError) {
-          console.error('Recent activity fetch error:', activityError)
-        } else {
-          recentActivity = activityData || []
-        }
-      } catch (error) {
-        console.error('Error fetching recent activity:', error)
+      ])
+      
+      // Extract counts with detailed logging
+      let totalUsers = 0
+      let totalCourses = 0
+      let totalEnrollments = 0
+      let recentActivity = []
+      
+      if (usersResult.status === 'fulfilled') {
+        totalUsers = usersResult.value.count || 0
+        console.log('Total users:', totalUsers)
+      } else {
+        console.error('Failed to fetch users count:', usersResult.reason)
       }
       
-      // Calculate revenue with error handling
+      if (coursesResult.status === 'fulfilled') {
+        totalCourses = coursesResult.value.count || 0
+        console.log('Total courses:', totalCourses)
+      } else {
+        console.error('Failed to fetch courses count:', coursesResult.reason)
+      }
+      
+      if (enrollmentsResult.status === 'fulfilled') {
+        totalEnrollments = enrollmentsResult.value.count || 0
+        console.log('Total enrollments:', totalEnrollments)
+      } else {
+        console.error('Failed to fetch enrollments count:', enrollmentsResult.reason)
+      }
+      
+      if (recentActivityResult.status === 'fulfilled') {
+        recentActivity = recentActivityResult.value.data || []
+        console.log('Recent activity count:', recentActivity.length)
+      } else {
+        console.error('Failed to fetch recent activity:', recentActivityResult.reason)
+      }
+      
+      // Calculate revenue from courses
       let totalRevenue = 0
       try {
-        const { data: courses, error: coursesError } = await supabase
+        const { data: coursesData, error: coursesError } = await supabase
           .from('courses')
           .select('price')
         
         if (coursesError) {
           console.error('Revenue calculation error:', coursesError)
         } else {
-          totalRevenue = (courses || []).reduce((sum, course) => {
+          totalRevenue = (coursesData || []).reduce((sum, course) => {
             const price = parseFloat(course.price) || 0
             return sum + price
           }, 0)
+          console.log('Total revenue calculated:', totalRevenue)
         }
       } catch (error) {
         console.error('Error calculating revenue:', error)
       }
       
-      return {
-        totalUsers: usersCount || 0,
-        totalCourses: coursesCount || 0,
-        totalEnrollments: enrollmentsCount || 0,
+      const analyticsData = {
+        totalUsers,
+        totalCourses,
+        totalEnrollments,
         totalRevenue: totalRevenue.toFixed(2),
         recentActivity,
       }
+      
+      console.log('Final analytics data:', analyticsData)
+      return analyticsData
+      
     } catch (error) {
       console.error('Error in fetchAnalytics:', error)
       return rejectWithValue(error.message || 'Failed to fetch analytics')
@@ -255,6 +299,10 @@ const adminSlice = createSlice({
     clearError: (state) => {
       state.error = null
     },
+    // Add action to refresh analytics
+    refreshAnalytics: (state) => {
+      state.loading = true
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -266,6 +314,8 @@ const adminSlice = createSlice({
       .addCase(fetchAllUsers.fulfilled, (state, action) => {
         state.loading = false
         state.users = action.payload
+        // Update analytics with real user count
+        state.analytics.totalUsers = action.payload.length
       })
       .addCase(fetchAllUsers.rejected, (state, action) => {
         state.loading = false
@@ -280,6 +330,8 @@ const adminSlice = createSlice({
       .addCase(fetchAllCourses.fulfilled, (state, action) => {
         state.loading = false
         state.courses = action.payload
+        // Update analytics with real course count
+        state.analytics.totalCourses = action.payload.length
       })
       .addCase(fetchAllCourses.rejected, (state, action) => {
         state.loading = false
@@ -294,6 +346,8 @@ const adminSlice = createSlice({
       .addCase(createCourse.fulfilled, (state, action) => {
         state.loading = false
         state.courses.unshift(action.payload)
+        // Update analytics
+        state.analytics.totalCourses = state.courses.length
       })
       .addCase(createCourse.rejected, (state, action) => {
         state.loading = false
@@ -323,6 +377,8 @@ const adminSlice = createSlice({
       .addCase(deleteCourse.fulfilled, (state, action) => {
         state.loading = false
         state.courses = state.courses.filter(course => course.id !== action.payload)
+        // Update analytics
+        state.analytics.totalCourses = state.courses.length
       })
       .addCase(deleteCourse.rejected, (state, action) => {
         state.loading = false
@@ -336,14 +392,16 @@ const adminSlice = createSlice({
       .addCase(fetchAnalytics.fulfilled, (state, action) => {
         state.loading = false
         state.analytics = action.payload
+        console.log('Analytics updated in state:', action.payload)
       })
       .addCase(fetchAnalytics.rejected, (state, action) => {
         state.loading = false
         state.error = action.payload
+        console.error('Analytics fetch failed:', action.payload)
         // Keep existing analytics data on error
       })
   },
 })
 
-export const { setSelectedCourse, setSelectedUser, clearError } = adminSlice.actions
+export const { setSelectedCourse, setSelectedUser, clearError, refreshAnalytics } = adminSlice.actions
 export default adminSlice.reducer

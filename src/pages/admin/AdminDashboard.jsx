@@ -19,9 +19,10 @@ import {
   X,
   Save,
   Upload,
-  Settings
+  Settings,
+  RefreshCw
 } from 'lucide-react'
-import { fetchAnalytics, fetchAllUsers, fetchAllCourses, createCourse, updateCourse, deleteCourse } from '../../store/slices/adminSlice'
+import { fetchAnalytics, fetchAllUsers, fetchAllCourses, createCourse, updateCourse, deleteCourse, refreshAnalytics } from '../../store/slices/adminSlice'
 import { useFormik } from 'formik'
 import * as Yup from 'yup'
 import toast from 'react-hot-toast'
@@ -266,44 +267,75 @@ const CourseModal = ({ isOpen, onClose, course, onSave }) => {
 
 const AdminOverview = () => {
   const dispatch = useDispatch()
-  const { analytics, loading } = useSelector(state => state.admin)
+  const { analytics, loading, users, courses } = useSelector(state => state.admin)
+  const [refreshing, setRefreshing] = useState(false)
 
   useEffect(() => {
-    dispatch(fetchAnalytics())
+    // Fetch all data on component mount
+    const fetchAllData = async () => {
+      try {
+        await Promise.all([
+          dispatch(fetchAnalytics()),
+          dispatch(fetchAllUsers()),
+          dispatch(fetchAllCourses())
+        ])
+      } catch (error) {
+        console.error('Error fetching admin data:', error)
+      }
+    }
+    
+    fetchAllData()
   }, [dispatch])
 
+  const handleRefresh = async () => {
+    setRefreshing(true)
+    try {
+      await Promise.all([
+        dispatch(fetchAnalytics()),
+        dispatch(fetchAllUsers()),
+        dispatch(fetchAllCourses())
+      ])
+      toast.success('Data refreshed successfully!')
+    } catch (error) {
+      toast.error('Failed to refresh data')
+    } finally {
+      setRefreshing(false)
+    }
+  }
+
+  // Use real-time data from the store
   const stats = [
     {
       label: 'Total Users',
-      value: analytics.totalUsers,
+      value: users.length || analytics.totalUsers || 0,
       icon: Users,
       color: 'text-blue-600',
       bg: 'bg-blue-100 dark:bg-blue-900/20'
     },
     {
       label: 'Total Courses',
-      value: analytics.totalCourses,
+      value: courses.length || analytics.totalCourses || 0,
       icon: BookOpen,
       color: 'text-green-600',
       bg: 'bg-green-100 dark:bg-green-900/20'
     },
     {
       label: 'Total Enrollments',
-      value: analytics.totalEnrollments,
+      value: analytics.totalEnrollments || 0,
       icon: TrendingUp,
       color: 'text-purple-600',
       bg: 'bg-purple-100 dark:bg-purple-900/20'
     },
     {
       label: 'Revenue',
-      value: `$${analytics.totalRevenue}`,
+      value: `$${analytics.totalRevenue || '0.00'}`,
       icon: DollarSign,
       color: 'text-yellow-600',
       bg: 'bg-yellow-100 dark:bg-yellow-900/20'
     }
   ]
 
-  if (loading) {
+  if (loading && !analytics.totalUsers) {
     return (
       <div className="flex items-center justify-center h-64">
         <LoadingSpinner size="lg" />
@@ -314,12 +346,24 @@ const AdminOverview = () => {
   return (
     <div>
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-          Admin Dashboard
-        </h1>
-        <p className="text-gray-600 dark:text-gray-300">
-          Manage your platform and monitor performance
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+              Admin Dashboard
+            </h1>
+            <p className="text-gray-600 dark:text-gray-300">
+              Manage your platform and monitor performance
+            </p>
+          </div>
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="flex items-center space-x-2 px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors disabled:opacity-50"
+          >
+            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+            <span>Refresh</span>
+          </button>
+        </div>
       </div>
 
       {/* Stats Grid */}
@@ -407,7 +451,7 @@ const AdminUsers = () => {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-          User Management
+          User Management ({users.length} users)
         </h1>
       </div>
 
@@ -566,7 +610,7 @@ const AdminCourses = () => {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-          Course Management
+          Course Management ({courses.length} courses)
         </h1>
         <button 
           onClick={() => {
