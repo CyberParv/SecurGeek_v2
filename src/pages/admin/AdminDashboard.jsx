@@ -675,7 +675,7 @@ const AdminUsers = () => {
 
   const handleUpdateUser = async (userData) => {
     try {
-      await dispatch(updateUser({ userId: selectedUser.id, updates: userData })).unwrap()
+      await dispatch(updateUser({ id: selectedUser.id, updates: userData })).unwrap()
       toast.success('User updated successfully!')
       setIsModalOpen(false)
       setSelectedUser(null)
