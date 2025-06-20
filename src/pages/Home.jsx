@@ -7,10 +7,8 @@ import {
   Shield, 
   Users, 
   Award, 
-  TrendingUp, 
   Play, 
   ChevronRight,
-  Star,
   CheckCircle,
   BookOpen,
   Globe,
@@ -19,7 +17,6 @@ import {
   Smartphone,
   Target,
   Headphones,
-  BarChart3,
   Zap,
   Brain,
   Eye,
@@ -76,8 +73,8 @@ const FloatingElements = () => {
 }
 
 const Hero = () => {
-  const { isAuthenticated } = useSelector(state => state.auth)
-  const dispatch = useDispatch()
+  // const { isAuthenticated } = useSelector(state => state.auth)
+  // const dispatch = useDispatch()
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -415,7 +412,6 @@ const FeaturedCourses = () => {
                 {/* Animated border */}
                 <div className="absolute inset-0 bg-gradient-to-r from-primary-500 via-secondary-500 to-cyber-500 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                 <div className="absolute inset-[2px] bg-white dark:bg-gray-800 rounded-2xl"></div>
-                
                 <div className="relative z-10">
                   <div className={`inline-flex items-center justify-center w-12 h-12 bg-gradient-to-r ${course.color || 'from-primary-500 to-secondary-500'} rounded-xl mb-4 group-hover:scale-105 transition-transform duration-200 shadow-lg`}>
                     {course.icon ? (
@@ -424,15 +420,12 @@ const FeaturedCourses = () => {
                       <BookOpen className="h-6 w-6 text-white" />
                     )}
                   </div>
-                  
                   <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors duration-200">
                     {course.title}
                   </h3>
-                  
                   <p className="text-gray-600 dark:text-gray-300 mb-4 leading-relaxed text-sm">
                     {course.description}
                   </p>
-                  
                   <motion.div
                     whileHover={{ x: 3 }}
                     transition={{ type: "spring", stiffness: 400 }}
@@ -450,7 +443,6 @@ const FeaturedCourses = () => {
             </motion.div>
           ))}
         </div>
-
         <motion.div 
           className="text-center"
           initial={{ opacity: 0, y: 20 }}
@@ -470,7 +462,7 @@ const FeaturedCourses = () => {
               <ChevronRight className="h-5 w-5 group-hover:translate-x-1 transition-transform duration-200" />
             </Link>
           </motion.div>
-        </div>
+        </motion.div>
       </div>
     </section>
   )
@@ -569,13 +561,14 @@ const WhyChooseUs = () => {
                     <img 
                       src="https://images.pexels.com/photos/3184465/pexels-photo-3184465.jpeg?auto=compress&cs=tinysrgb&w=800" 
                       alt="Corporate Training Session"
-                      className="w-full h-full object-cover rounded-2xl"
+                      className="w-full h-64 md:h-80 lg:h-96 object-cover rounded-2xl"
+                      style={{ minHeight: '16rem', maxHeight: '28rem' }}
                     />
                   </motion.div>
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent rounded-2xl flex items-end justify-center p-6">
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent rounded-2xl flex items-end justify-center p-6">
                     <div className="text-center">
-                      <h3 className="text-xl font-bold mb-2">Corporate Training Session</h3>
-                      <p className="text-lg opacity-90">Interactive cybersecurity workshops</p>
+                      <h3 className="text-xl font-bold mb-2 drop-shadow-lg">Corporate Training Session</h3>
+                      <p className="text-lg opacity-95 drop-shadow-lg">Interactive cybersecurity workshops</p>
                     </div>
                   </div>
                 </div>

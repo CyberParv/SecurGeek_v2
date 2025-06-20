@@ -1,23 +1,20 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { useSelector, useDispatch } from 'react-redux'
+import { useSelector } from 'react-redux'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Helmet } from 'react-helmet-async'
 import { 
   Clock, 
-  CheckCircle, 
-  AlertCircle, 
   ArrowRight, 
   ArrowLeft,
   Flag,
   Award,
   RotateCcw,
-  FileText,
-  Target
+  FileText
 } from 'lucide-react'
-import { supabase } from '../lib/supabase'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import toast from 'react-hot-toast'
+import { supabase } from '../lib/supabase'
 
 const AssessmentInterface = () => {
   const { assessmentId } = useParams()
@@ -195,6 +192,45 @@ const AssessmentInterface = () => {
   const currentQuestion = questions[currentQuestionIndex]
   const progress = questions.length > 0 ? ((currentQuestionIndex + 1) / questions.length) * 100 : 0
 
+  // Helper to go to next lesson after assessment
+  const goToNextLesson = async () => {
+    // Fetch course sections and content order
+    const { data: sectionsData, error } = await supabase
+      .from('course_sections')
+      .select(`*, lessons:lessons(*), assessments:assessments(*)`)
+      .eq('course_id', assessment.course_id)
+      .order('order_index')
+    if (error) return toast.error('Could not load course content')
+    // Flatten all content in order
+    const orderedContent = (sectionsData || []).flatMap(section =>
+      [
+        ...(section.lessons?.map(lesson => ({ ...lesson, type: 'lesson' })) || []),
+        ...(section.assessments?.map(assess => ({ ...assess, type: 'assessment' })) || [])
+      ].sort((a, b) => a.order_index - b.order_index)
+    )
+    // Find current assessment index
+    const idx = orderedContent.findIndex(c => c.type === 'assessment' && c.id == assessmentId)
+    // Find next lesson after this assessment
+    const nextLesson = orderedContent.slice(idx + 1).find(c => c.type === 'lesson')
+    if (nextLesson) {
+      navigate(`/courses/${assessment.course_id}/learn`)
+      // Optionally, you could dispatch(setCurrentLesson(nextLesson)) if using redux
+    } else {
+      toast('No more lessons in this course!')
+      navigate(`/courses/${assessment.course_id}/learn`)
+    }
+  }
+
+  // Add a function to reset the assessment state for Try Again
+  const handleTryAgain = () => {
+    setHasStarted(false)
+    setIsCompleted(false)
+    setResults(null)
+    setAnswers({})
+    setCurrentQuestionIndex(0)
+    setTimeRemaining(assessment?.time_limit_minutes ? assessment.time_limit_minutes * 60 : null)
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
@@ -259,16 +295,18 @@ const AssessmentInterface = () => {
               </div>
               
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <button
-                  onClick={() => navigate('/dashboard')}
-                  className="bg-gradient-to-r from-primary-500 to-secondary-500 text-white px-6 py-3 rounded-lg hover:from-primary-600 hover:to-secondary-600 transition-colors"
-                >
-                  Back to Dashboard
-                </button>
+                {results.passed ? (
+                  <button
+                    onClick={goToNextLesson}
+                    className="bg-gradient-to-r from-primary-500 to-secondary-500 text-white px-6 py-3 rounded-lg hover:from-primary-600 hover:to-secondary-600 transition-colors"
+                  >
+                    Next Lesson
+                  </button>
+                ) : null}
                 {!results.passed && (
                   <button
-                    onClick={() => window.location.reload()}
-                    className="border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 px-6 py-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                    onClick={handleTryAgain}
+                    className="bg-gradient-to-r from-primary-500 to-secondary-500 text-white px-6 py-3 rounded-lg hover:from-primary-600 hover:to-secondary-600 transition-colors"
                   >
                     Try Again
                   </button>
@@ -498,7 +536,7 @@ const AssessmentInterface = () => {
                   </button>
 
                   <div className="text-sm text-gray-500 dark:text-gray-400">
-                    {Object.keys(answers).length} of {questions.length} answered
+                    Object.keys(answers).length of {questions.length} answered
                   </div>
 
                   <button

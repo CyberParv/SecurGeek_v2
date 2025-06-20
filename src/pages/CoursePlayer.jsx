@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { useSelector, useDispatch } from 'react-redux'
 import { Helmet } from 'react-helmet-async'
 import { 
@@ -23,6 +23,7 @@ const CoursePlayer = () => {
   const { user } = useSelector(state => state.auth)
   const [activeTab, setActiveTab] = useState('overview')
   const [sections, setSections] = useState([])
+  const navigate = useNavigate()
 
   useEffect(() => {
     if (id) {
@@ -76,10 +77,8 @@ const CoursePlayer = () => {
     if (content.type === 'lesson') {
       dispatch(setCurrentLesson(content))
     } else if (content.type === 'assessment') {
-      // Handle assessment selection - could navigate to assessment page
-      console.log('Assessment selected:', content)
-      // For now, just show a message
-      alert(`Assessment: ${content.title}\nThis would open the assessment interface.`)
+      // Navigate to the assessment interface
+      navigate(`/assessment/${content.id}`)
     }
   }
 
