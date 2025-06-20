@@ -39,8 +39,7 @@ import {
   deleteCourse, 
   updateUser,
   deleteUser,
-  fetchDetailedAnalytics,
-  refreshAnalytics 
+  fetchDetailedAnalytics
 } from '../../store/slices/adminSlice'
 import { useFormik } from 'formik'
 import * as Yup from 'yup'
