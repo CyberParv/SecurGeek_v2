@@ -22,7 +22,8 @@ import {
   Users,
   BarChart3,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  GripVertical
 } from 'lucide-react'
 import { useFormik } from 'formik'
 import * as Yup from 'yup'
@@ -48,13 +49,7 @@ const SectionModal = ({ isOpen, onClose, courseId, section, onSave }) => {
     onSubmit: async (values) => {
       setLoading(true)
       try {
-        const sectionData = {
-          ...values,
-          course_id: courseId,
-          order_index: section?.order_index || 0,
-        }
-
-        await onSave(sectionData)
+        await onSave(values)
         onClose()
         formik.resetForm()
       } catch (error) {
@@ -148,41 +143,50 @@ const SectionModal = ({ isOpen, onClose, courseId, section, onSave }) => {
   )
 }
 
-const LessonModal = ({ isOpen, onClose, sectionId, lesson, onSave }) => {
+const ContentModal = ({ isOpen, onClose, sectionId, content, contentType, onSave }) => {
   const [loading, setLoading] = useState(false)
 
-  const lessonSchema = Yup.object({
+  const contentSchema = Yup.object({
     title: Yup.string().required('Title is required'),
     description: Yup.string(),
-    content: Yup.string(),
-    video_url: Yup.string().url('Must be a valid URL'),
-    duration_minutes: Yup.number().min(1, 'Duration must be at least 1 minute'),
+    ...(contentType === 'lesson' ? {
+      content: Yup.string(),
+      video_url: Yup.string().url('Must be a valid URL'),
+      duration_minutes: Yup.number().min(1, 'Duration must be at least 1 minute'),
+    } : {
+      assessment_type: Yup.string().required('Assessment type is required'),
+      passing_score: Yup.number().min(0).max(100).required('Passing score is required'),
+      max_attempts: Yup.number().min(1).required('Max attempts is required'),
+    })
   })
 
   const formik = useFormik({
     initialValues: {
-      title: lesson?.title || '',
-      description: lesson?.description || '',
-      content: lesson?.content || '',
-      video_url: lesson?.video_url || '',
-      duration_minutes: lesson?.duration_minutes || 10,
+      title: content?.title || '',
+      description: content?.description || '',
+      // Lesson fields
+      content: content?.content || '',
+      video_url: content?.video_url || '',
+      duration_minutes: content?.duration_minutes || 10,
+      // Assessment fields
+      assessment_type: content?.assessment_type || 'quiz',
+      instructions: content?.instructions || '',
+      time_limit_minutes: content?.time_limit_minutes || '',
+      passing_score: content?.passing_score || 70,
+      max_attempts: content?.max_attempts || 3,
+      is_required: content?.is_required ?? true,
+      is_published: content?.is_published ?? false,
     },
-    validationSchema: lessonSchema,
+    validationSchema: contentSchema,
     enableReinitialize: true,
     onSubmit: async (values) => {
       setLoading(true)
       try {
-        const lessonData = {
-          ...values,
-          section_id: sectionId,
-          order_index: lesson?.order_index || 0,
-        }
-
-        await onSave(lessonData)
+        await onSave(values, contentType)
         onClose()
         formik.resetForm()
       } catch (error) {
-        toast.error(error.message || 'Failed to save lesson')
+        toast.error(error.message || `Failed to save ${contentType}`)
       } finally {
         setLoading(false)
       }
@@ -208,7 +212,7 @@ const LessonModal = ({ isOpen, onClose, sectionId, lesson, onSave }) => {
           >
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                {lesson ? 'Edit Lesson' : 'Create New Lesson'}
+                {content ? `Edit ${contentType}` : `Create New ${contentType}`}
               </h2>
               <button
                 onClick={onClose}
@@ -221,13 +225,13 @@ const LessonModal = ({ isOpen, onClose, sectionId, lesson, onSave }) => {
             <form onSubmit={formik.handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Lesson Title
+                  {contentType === 'lesson' ? 'Lesson' : 'Assessment'} Title
                 </label>
                 <input
                   type="text"
                   {...formik.getFieldProps('title')}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                  placeholder="Enter lesson title"
+                  placeholder={`Enter ${contentType} title`}
                 />
                 {formik.touched.title && formik.errors.title && (
                   <p className="mt-1 text-sm text-red-600">{formik.errors.title}</p>
@@ -242,53 +246,158 @@ const LessonModal = ({ isOpen, onClose, sectionId, lesson, onSave }) => {
                   {...formik.getFieldProps('description')}
                   rows={3}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                  placeholder="Brief description of the lesson"
+                  placeholder={`Brief description of the ${contentType}`}
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Video URL
-                  </label>
-                  <input
-                    type="url"
-                    {...formik.getFieldProps('video_url')}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                    placeholder="https://youtube.com/watch?v=..."
-                  />
-                  {formik.touched.video_url && formik.errors.video_url && (
-                    <p className="mt-1 text-sm text-red-600">{formik.errors.video_url}</p>
-                  )}
-                </div>
+              {contentType === 'lesson' ? (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Video URL
+                      </label>
+                      <input
+                        type="url"
+                        {...formik.getFieldProps('video_url')}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                        placeholder="https://youtube.com/watch?v=..."
+                      />
+                      {formik.touched.video_url && formik.errors.video_url && (
+                        <p className="mt-1 text-sm text-red-600">{formik.errors.video_url}</p>
+                      )}
+                    </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Duration (minutes)
-                  </label>
-                  <input
-                    type="number"
-                    {...formik.getFieldProps('duration_minutes')}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                    placeholder="10"
-                  />
-                  {formik.touched.duration_minutes && formik.errors.duration_minutes && (
-                    <p className="mt-1 text-sm text-red-600">{formik.errors.duration_minutes}</p>
-                  )}
-                </div>
-              </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Duration (minutes)
+                      </label>
+                      <input
+                        type="number"
+                        {...formik.getFieldProps('duration_minutes')}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                        placeholder="10"
+                      />
+                      {formik.touched.duration_minutes && formik.errors.duration_minutes && (
+                        <p className="mt-1 text-sm text-red-600">{formik.errors.duration_minutes}</p>
+                      )}
+                    </div>
+                  </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Lesson Content
-                </label>
-                <textarea
-                  {...formik.getFieldProps('content')}
-                  rows={6}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                  placeholder="Detailed lesson content, notes, and materials..."
-                />
-              </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Lesson Content
+                    </label>
+                    <textarea
+                      {...formik.getFieldProps('content')}
+                      rows={6}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                      placeholder="Detailed lesson content, notes, and materials..."
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Assessment Type
+                      </label>
+                      <select
+                        {...formik.getFieldProps('assessment_type')}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                      >
+                        <option value="quiz">Quiz</option>
+                        <option value="midterm">Midterm</option>
+                        <option value="final">Final Exam</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Time Limit (minutes)
+                      </label>
+                      <input
+                        type="number"
+                        {...formik.getFieldProps('time_limit_minutes')}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                        placeholder="Leave empty for no limit"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Passing Score (%)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        {...formik.getFieldProps('passing_score')}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                      />
+                      {formik.touched.passing_score && formik.errors.passing_score && (
+                        <p className="mt-1 text-sm text-red-600">{formik.errors.passing_score}</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Max Attempts
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        {...formik.getFieldProps('max_attempts')}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                      />
+                      {formik.touched.max_attempts && formik.errors.max_attempts && (
+                        <p className="mt-1 text-sm text-red-600">{formik.errors.max_attempts}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Instructions
+                    </label>
+                    <textarea
+                      {...formik.getFieldProps('instructions')}
+                      rows={4}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                      placeholder="Instructions for students taking this assessment"
+                    />
+                  </div>
+
+                  <div className="flex items-center space-x-6">
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        {...formik.getFieldProps('is_required')}
+                        checked={formik.values.is_required}
+                        className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                      />
+                      <label className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
+                        Required Assessment
+                      </label>
+                    </div>
+
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        {...formik.getFieldProps('is_published')}
+                        checked={formik.values.is_published}
+                        className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                      />
+                      <label className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
+                        Published
+                      </label>
+                    </div>
+                  </div>
+                </>
+              )}
 
               <div className="flex justify-end space-x-3 pt-4">
                 <button
@@ -305,234 +414,7 @@ const LessonModal = ({ isOpen, onClose, sectionId, lesson, onSave }) => {
                 >
                   {loading && <LoadingSpinner size="sm" />}
                   <Save className="h-4 w-4" />
-                  <span>{lesson ? 'Update Lesson' : 'Create Lesson'}</span>
-                </button>
-              </div>
-            </form>
-          </motion.div>
-        </div>
-      )}
-    </AnimatePresence>
-  )
-}
-
-const AssessmentModal = ({ isOpen, onClose, courseId, assessment, onSave }) => {
-  const [loading, setLoading] = useState(false)
-
-  const assessmentSchema = Yup.object({
-    title: Yup.string().required('Title is required'),
-    assessment_type: Yup.string().required('Assessment type is required'),
-    passing_score: Yup.number().min(0).max(100).required('Passing score is required'),
-    max_attempts: Yup.number().min(1).required('Max attempts is required'),
-  })
-
-  const formik = useFormik({
-    initialValues: {
-      title: assessment?.title || '',
-      description: assessment?.description || '',
-      assessment_type: assessment?.assessment_type || 'quiz',
-      instructions: assessment?.instructions || '',
-      time_limit_minutes: assessment?.time_limit_minutes || '',
-      passing_score: assessment?.passing_score || 70,
-      max_attempts: assessment?.max_attempts || 3,
-      is_required: assessment?.is_required ?? true,
-      is_published: assessment?.is_published ?? false,
-    },
-    validationSchema: assessmentSchema,
-    enableReinitialize: true,
-    onSubmit: async (values) => {
-      setLoading(true)
-      try {
-        const assessmentData = {
-          ...values,
-          course_id: courseId,
-          time_limit_minutes: values.time_limit_minutes || null,
-          order_index: assessment?.order_index || 0,
-        }
-
-        await onSave(assessmentData)
-        onClose()
-        formik.resetForm()
-      } catch (error) {
-        toast.error(error.message || 'Failed to save assessment')
-      } finally {
-        setLoading(false)
-      }
-    },
-  })
-
-  return (
-    <AnimatePresence>
-      {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50"
-            onClick={onClose}
-          />
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            className="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl mx-4 p-6 max-h-[90vh] overflow-y-auto"
-          >
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                {assessment ? 'Edit Assessment' : 'Create New Assessment'}
-              </h2>
-              <button
-                onClick={onClose}
-                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-              >
-                <X className="h-5 w-5 text-gray-500 dark:text-gray-400" />
-              </button>
-            </div>
-
-            <form onSubmit={formik.handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Assessment Title
-                </label>
-                <input
-                  type="text"
-                  {...formik.getFieldProps('title')}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                  placeholder="Enter assessment title"
-                />
-                {formik.touched.title && formik.errors.title && (
-                  <p className="mt-1 text-sm text-red-600">{formik.errors.title}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Description
-                </label>
-                <textarea
-                  {...formik.getFieldProps('description')}
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                  placeholder="Brief description of the assessment"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Assessment Type
-                  </label>
-                  <select
-                    {...formik.getFieldProps('assessment_type')}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                  >
-                    <option value="quiz">Quiz</option>
-                    <option value="midterm">Midterm</option>
-                    <option value="final">Final Exam</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Time Limit (minutes)
-                  </label>
-                  <input
-                    type="number"
-                    {...formik.getFieldProps('time_limit_minutes')}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                    placeholder="Leave empty for no limit"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Passing Score (%)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    {...formik.getFieldProps('passing_score')}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                  />
-                  {formik.touched.passing_score && formik.errors.passing_score && (
-                    <p className="mt-1 text-sm text-red-600">{formik.errors.passing_score}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Max Attempts
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    {...formik.getFieldProps('max_attempts')}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                  />
-                  {formik.touched.max_attempts && formik.errors.max_attempts && (
-                    <p className="mt-1 text-sm text-red-600">{formik.errors.max_attempts}</p>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Instructions
-                </label>
-                <textarea
-                  {...formik.getFieldProps('instructions')}
-                  rows={4}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                  placeholder="Instructions for students taking this assessment"
-                />
-              </div>
-
-              <div className="flex items-center space-x-6">
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    {...formik.getFieldProps('is_required')}
-                    checked={formik.values.is_required}
-                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                  />
-                  <label className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
-                    Required Assessment
-                  </label>
-                </div>
-
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    {...formik.getFieldProps('is_published')}
-                    checked={formik.values.is_published}
-                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                  />
-                  <label className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
-                    Published
-                  </label>
-                </div>
-              </div>
-
-              <div className="flex justify-end space-x-3 pt-4">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="px-4 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="bg-gradient-to-r from-primary-500 to-secondary-500 text-white px-6 py-2 rounded-lg hover:from-primary-600 hover:to-secondary-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
-                >
-                  {loading && <LoadingSpinner size="sm" />}
-                  <Save className="h-4 w-4" />
-                  <span>{assessment ? 'Update Assessment' : 'Create Assessment'}</span>
+                  <span>{content ? `Update ${contentType}` : `Create ${contentType}`}</span>
                 </button>
               </div>
             </form>
@@ -550,16 +432,14 @@ const CourseEditor = () => {
   
   const [course, setCourse] = useState(null)
   const [sections, setSections] = useState([])
-  const [assessments, setAssessments] = useState([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [showSectionModal, setShowSectionModal] = useState(false)
-  const [showLessonModal, setShowLessonModal] = useState(false)
-  const [showAssessmentModal, setShowAssessmentModal] = useState(false)
+  const [showContentModal, setShowContentModal] = useState(false)
   const [editingSection, setEditingSection] = useState(null)
-  const [editingLesson, setEditingLesson] = useState(null)
-  const [editingAssessment, setEditingAssessment] = useState(null)
+  const [editingContent, setEditingContent] = useState(null)
   const [selectedSectionId, setSelectedSectionId] = useState(null)
+  const [contentType, setContentType] = useState('lesson')
   const [collapsedSections, setCollapsedSections] = useState({})
 
   useEffect(() => {
@@ -579,37 +459,38 @@ const CourseEditor = () => {
 
       if (courseError) throw courseError
 
-      // Fetch course sections with lessons
+      // Fetch course sections with lessons and assessments
       const { data: sectionsData, error: sectionsError } = await supabase
         .from('course_sections')
         .select(`
           *,
-          lessons:lessons(*)
+          lessons:lessons(*),
+          assessments:assessments(*)
         `)
         .eq('course_id', courseId)
         .order('order_index')
 
       if (sectionsError) throw sectionsError
 
-      // Fetch assessments
-      const { data: assessmentsData, error: assessmentsError } = await supabase
-        .from('assessments')
-        .select(`
-          *,
-          questions:assessment_questions(count)
-        `)
-        .eq('course_id', courseId)
-        .order('order_index')
-
-      if (assessmentsError) throw assessmentsError
+      // Combine lessons and assessments into unified content array
+      const sectionsWithContent = sectionsData?.map(section => {
+        const content = [
+          ...(section.lessons?.map(lesson => ({ ...lesson, type: 'lesson' })) || []),
+          ...(section.assessments?.map(assessment => ({ ...assessment, type: 'assessment' })) || [])
+        ].sort((a, b) => a.order_index - b.order_index)
+        
+        return {
+          ...section,
+          content
+        }
+      }) || []
 
       setCourse(courseData)
-      setSections(sectionsData || [])
-      setAssessments(assessmentsData || [])
+      setSections(sectionsWithContent)
 
       // Initialize collapsed state
       const initialCollapsed = {}
-      sectionsData?.forEach(section => {
+      sectionsWithContent?.forEach(section => {
         initialCollapsed[section.id] = false
       })
       setCollapsedSections(initialCollapsed)
@@ -643,6 +524,7 @@ const CourseEditor = () => {
           .from('course_sections')
           .insert({
             ...sectionData,
+            course_id: courseId,
             order_index: sections.length
           })
           .select()
@@ -650,7 +532,7 @@ const CourseEditor = () => {
 
         if (error) throw error
 
-        setSections(prev => [...prev, { ...data, lessons: [] }])
+        setSections(prev => [...prev, { ...data, content: [] }])
         toast.success('Section created successfully!')
       }
 
@@ -664,35 +546,47 @@ const CourseEditor = () => {
     }
   }
 
-  const handleSaveLesson = async (lessonData) => {
+  const handleSaveContent = async (contentData, type) => {
     setSaving(true)
     try {
-      if (editingLesson) {
-        // Update existing lesson
+      if (editingContent) {
+        // Update existing content
+        const table = type === 'lesson' ? 'lessons' : 'assessments'
         const { error } = await supabase
-          .from('lessons')
-          .update(lessonData)
-          .eq('id', editingLesson.id)
+          .from(table)
+          .update(contentData)
+          .eq('id', editingContent.id)
 
         if (error) throw error
 
         setSections(prev => prev.map(section => ({
           ...section,
-          lessons: section.lessons?.map(lesson =>
-            lesson.id === editingLesson.id ? { ...lesson, ...lessonData } : lesson
+          content: section.content?.map(content =>
+            content.id === editingContent.id ? { ...content, ...contentData } : content
           ) || []
         })))
-        toast.success('Lesson updated successfully!')
+        toast.success(`${type} updated successfully!`)
       } else {
-        // Create new lesson
-        const sectionLessons = sections.find(s => s.id === selectedSectionId)?.lessons || []
+        // Create new content
+        const sectionContent = sections.find(s => s.id === selectedSectionId)?.content || []
+        const table = type === 'lesson' ? 'lessons' : 'assessments'
+        
+        const insertData = {
+          ...contentData,
+          order_index: sectionContent.length
+        }
+
+        if (type === 'lesson') {
+          insertData.course_id = courseId
+          insertData.section_id = selectedSectionId
+        } else {
+          insertData.course_id = courseId
+          insertData.section_id = selectedSectionId
+        }
+
         const { data, error } = await supabase
-          .from('lessons')
-          .insert({
-            ...lessonData,
-            course_id: courseId,
-            order_index: sectionLessons.length
-          })
+          .from(table)
+          .insert(insertData)
           .select()
           .single()
 
@@ -700,68 +594,67 @@ const CourseEditor = () => {
 
         setSections(prev => prev.map(section =>
           section.id === selectedSectionId
-            ? { ...section, lessons: [...(section.lessons || []), data] }
+            ? { ...section, content: [...(section.content || []), { ...data, type }] }
             : section
         ))
-        toast.success('Lesson created successfully!')
+        toast.success(`${type} created successfully!`)
       }
 
-      setShowLessonModal(false)
-      setEditingLesson(null)
+      setShowContentModal(false)
+      setEditingContent(null)
       setSelectedSectionId(null)
     } catch (error) {
-      console.error('Error saving lesson:', error)
-      toast.error('Failed to save lesson')
+      console.error(`Error saving ${type}:`, error)
+      toast.error(`Failed to save ${type}`)
     } finally {
       setSaving(false)
     }
   }
 
-  const handleSaveAssessment = async (assessmentData) => {
-    setSaving(true)
+  const handleMoveContent = async (sectionId, contentId, direction) => {
+    const section = sections.find(s => s.id === sectionId)
+    if (!section) return
+
+    const currentIndex = section.content.findIndex(c => c.id === contentId)
+    const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1
+    
+    if (newIndex < 0 || newIndex >= section.content.length) return
+
+    const newContent = [...section.content]
+    const [movedItem] = newContent.splice(currentIndex, 1)
+    newContent.splice(newIndex, 0, movedItem)
+
+    // Update order_index for affected items
+    const updates = newContent.map((item, index) => ({
+      id: item.id,
+      order_index: index,
+      type: item.type
+    }))
+
     try {
-      if (editingAssessment) {
-        // Update existing assessment
-        const { error } = await supabase
-          .from('assessments')
-          .update(assessmentData)
-          .eq('id', editingAssessment.id)
-
-        if (error) throw error
-
-        setAssessments(prev => prev.map(a => 
-          a.id === editingAssessment.id ? { ...a, ...assessmentData } : a
-        ))
-        toast.success('Assessment updated successfully!')
-      } else {
-        // Create new assessment
-        const { data, error } = await supabase
-          .from('assessments')
-          .insert({
-            ...assessmentData,
-            order_index: assessments.length
-          })
-          .select()
-          .single()
-
-        if (error) throw error
-
-        setAssessments(prev => [...prev, { ...data, questions: [{ count: 0 }] }])
-        toast.success('Assessment created successfully!')
+      // Update both lessons and assessments
+      for (const update of updates) {
+        const table = update.type === 'lesson' ? 'lessons' : 'assessments'
+        await supabase
+          .from(table)
+          .update({ order_index: update.order_index })
+          .eq('id', update.id)
       }
 
-      setShowAssessmentModal(false)
-      setEditingAssessment(null)
+      // Update local state
+      setSections(prev => prev.map(s => 
+        s.id === sectionId ? { ...s, content: newContent } : s
+      ))
+
+      toast.success('Content order updated!')
     } catch (error) {
-      console.error('Error saving assessment:', error)
-      toast.error('Failed to save assessment')
-    } finally {
-      setSaving(false)
+      console.error('Error updating content order:', error)
+      toast.error('Failed to update content order')
     }
   }
 
   const handleDeleteSection = async (sectionId) => {
-    if (!window.confirm('Are you sure you want to delete this section? This will also delete all lessons in this section.')) return
+    if (!window.confirm('Are you sure you want to delete this section? This will also delete all content in this section.')) return
 
     try {
       const { error } = await supabase
@@ -779,44 +672,26 @@ const CourseEditor = () => {
     }
   }
 
-  const handleDeleteLesson = async (lessonId) => {
-    if (!window.confirm('Are you sure you want to delete this lesson?')) return
+  const handleDeleteContent = async (contentId, type) => {
+    if (!window.confirm(`Are you sure you want to delete this ${type}?`)) return
 
     try {
+      const table = type === 'lesson' ? 'lessons' : 'assessments'
       const { error } = await supabase
-        .from('lessons')
+        .from(table)
         .delete()
-        .eq('id', lessonId)
+        .eq('id', contentId)
 
       if (error) throw error
 
       setSections(prev => prev.map(section => ({
         ...section,
-        lessons: section.lessons?.filter(lesson => lesson.id !== lessonId) || []
+        content: section.content?.filter(content => content.id !== contentId) || []
       })))
-      toast.success('Lesson deleted successfully!')
+      toast.success(`${type} deleted successfully!`)
     } catch (error) {
-      console.error('Error deleting lesson:', error)
-      toast.error('Failed to delete lesson')
-    }
-  }
-
-  const handleDeleteAssessment = async (assessmentId) => {
-    if (!window.confirm('Are you sure you want to delete this assessment? This will also delete all questions.')) return
-
-    try {
-      const { error } = await supabase
-        .from('assessments')
-        .delete()
-        .eq('id', assessmentId)
-
-      if (error) throw error
-
-      setAssessments(prev => prev.filter(a => a.id !== assessmentId))
-      toast.success('Assessment deleted successfully!')
-    } catch (error) {
-      console.error('Error deleting assessment:', error)
-      toast.error('Failed to delete assessment')
+      console.error(`Error deleting ${type}:`, error)
+      toast.error(`Failed to delete ${type}`)
     }
   }
 
@@ -825,20 +700,17 @@ const CourseEditor = () => {
     setShowSectionModal(true)
   }
 
-  const handleEditLesson = (lesson) => {
-    setEditingLesson(lesson)
-    setShowLessonModal(true)
+  const handleEditContent = (content) => {
+    setEditingContent(content)
+    setContentType(content.type)
+    setShowContentModal(true)
   }
 
-  const handleEditAssessment = (assessment) => {
-    setEditingAssessment(assessment)
-    setShowAssessmentModal(true)
-  }
-
-  const handleAddLesson = (sectionId) => {
+  const handleAddContent = (sectionId, type) => {
     setSelectedSectionId(sectionId)
-    setEditingLesson(null)
-    setShowLessonModal(true)
+    setContentType(type)
+    setEditingContent(null)
+    setShowContentModal(true)
   }
 
   const toggleSection = (sectionId) => {
@@ -891,7 +763,7 @@ const CourseEditor = () => {
                     {course.title}
                   </h1>
                   <p className="text-gray-600 dark:text-gray-300">
-                    Course Management Dashboard
+                    Course Content Management
                   </p>
                 </div>
                 <div className="flex items-center space-x-3">
@@ -915,10 +787,18 @@ const CourseEditor = () => {
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
                 <div className="text-center">
                   <div className="text-2xl font-bold text-gray-900 dark:text-white">
-                    {sections.reduce((total, section) => total + (section.lessons?.length || 0), 0)}
+                    {sections.reduce((total, section) => total + (section.content?.filter(c => c.type === 'lesson').length || 0), 0)}
                   </div>
                   <div className="text-sm text-gray-600 dark:text-gray-300">
                     Total Lessons
+                  </div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                    {sections.reduce((total, section) => total + (section.content?.filter(c => c.type === 'assessment').length || 0), 0)}
+                  </div>
+                  <div className="text-sm text-gray-600 dark:text-gray-300">
+                    Assessments
                   </div>
                 </div>
                 <div className="text-center">
@@ -927,14 +807,6 @@ const CourseEditor = () => {
                   </div>
                   <div className="text-sm text-gray-600 dark:text-gray-300">
                     Sections
-                  </div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-gray-900 dark:text-white">
-                    {assessments.length}
-                  </div>
-                  <div className="text-sm text-gray-600 dark:text-gray-300">
-                    Assessments
                   </div>
                 </div>
                 <div className="text-center">
@@ -949,233 +821,209 @@ const CourseEditor = () => {
             </div>
 
             {/* Course Content Management */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              {/* Sections & Lessons */}
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                    Course Sections & Lessons
-                  </h2>
-                  <button 
-                    onClick={() => setShowSectionModal(true)}
-                    className="bg-gradient-to-r from-primary-500 to-secondary-500 text-white px-4 py-2 rounded-lg hover:from-primary-600 hover:to-secondary-600 transition-colors flex items-center space-x-2"
-                  >
-                    <Plus className="h-4 w-4" />
-                    <span>Add Section</span>
-                  </button>
-                </div>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                  Course Content & Structure
+                </h2>
+                <button 
+                  onClick={() => setShowSectionModal(true)}
+                  className="bg-gradient-to-r from-primary-500 to-secondary-500 text-white px-4 py-2 rounded-lg hover:from-primary-600 hover:to-secondary-600 transition-colors flex items-center space-x-2"
+                >
+                  <Plus className="h-4 w-4" />
+                  <span>Add Section</span>
+                </button>
+              </div>
 
-                <div className="space-y-4">
-                  {sections.length === 0 ? (
-                    <div className="text-center py-8">
-                      <BookOpen className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-500 dark:text-gray-400 mb-4">
-                        No sections created yet
-                      </p>
-                      <button 
-                        onClick={() => setShowSectionModal(true)}
-                        className="bg-gradient-to-r from-primary-500 to-secondary-500 text-white px-4 py-2 rounded-lg hover:from-primary-600 hover:to-secondary-600 transition-colors"
-                      >
-                        Create First Section
-                      </button>
-                    </div>
-                  ) : (
-                    sections.map((section, index) => (
-                      <div key={section.id} className="border border-gray-200 dark:border-gray-700 rounded-lg">
-                        <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-t-lg">
-                          <div className="flex items-center space-x-3">
-                            <button
-                              onClick={() => toggleSection(section.id)}
-                              className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
-                            >
-                              {collapsedSections[section.id] ? (
-                                <ChevronRight className="h-4 w-4 text-gray-500" />
-                              ) : (
-                                <ChevronDown className="h-4 w-4 text-gray-500" />
-                              )}
-                            </button>
-                            <h3 className="font-medium text-gray-900 dark:text-white">
-                              {section.title}
-                            </h3>
-                            <span className="text-sm text-gray-500 dark:text-gray-400">
-                              ({section.lessons?.length || 0} lessons)
-                            </span>
-                          </div>
-                          <div className="flex items-center space-x-2">
+              <div className="space-y-4">
+                {sections.length === 0 ? (
+                  <div className="text-center py-12">
+                    <BookOpen className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                      No sections created yet
+                    </h3>
+                    <p className="text-gray-500 dark:text-gray-400 mb-6">
+                      Start organizing your course by creating sections
+                    </p>
+                    <button 
+                      onClick={() => setShowSectionModal(true)}
+                      className="bg-gradient-to-r from-primary-500 to-secondary-500 text-white px-6 py-3 rounded-lg hover:from-primary-600 hover:to-secondary-600 transition-colors"
+                    >
+                      Create First Section
+                    </button>
+                  </div>
+                ) : (
+                  sections.map((section, sectionIndex) => (
+                    <div key={section.id} className="border border-gray-200 dark:border-gray-700 rounded-lg">
+                      <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-t-lg">
+                        <div className="flex items-center space-x-3">
+                          <button
+                            onClick={() => toggleSection(section.id)}
+                            className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
+                          >
+                            {collapsedSections[section.id] ? (
+                              <ChevronRight className="h-4 w-4 text-gray-500" />
+                            ) : (
+                              <ChevronDown className="h-4 w-4 text-gray-500" />
+                            )}
+                          </button>
+                          <h3 className="font-medium text-gray-900 dark:text-white">
+                            {section.title}
+                          </h3>
+                          <span className="text-sm text-gray-500 dark:text-gray-400">
+                            ({section.content?.length || 0} items)
+                          </span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <div className="flex items-center space-x-1">
                             <button 
-                              onClick={() => handleAddLesson(section.id)}
-                              className="p-1 text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-900/20 rounded"
+                              onClick={() => handleAddContent(section.id, 'lesson')}
+                              className="p-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded"
                               title="Add Lesson"
                             >
-                              <Plus className="h-4 w-4" />
+                              <Play className="h-4 w-4" />
                             </button>
                             <button 
-                              onClick={() => handleEditSection(section)}
-                              className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
-                              title="Edit Section"
+                              onClick={() => handleAddContent(section.id, 'assessment')}
+                              className="p-1 text-purple-600 hover:text-purple-700 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded"
+                              title="Add Assessment"
                             >
-                              <Edit className="h-4 w-4" />
-                            </button>
-                            <button 
-                              onClick={() => handleDeleteSection(section.id)}
-                              className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
-                              title="Delete Section"
-                            >
-                              <Trash2 className="h-4 w-4" />
+                              <Award className="h-4 w-4" />
                             </button>
                           </div>
+                          <div className="w-px h-4 bg-gray-300 dark:bg-gray-600"></div>
+                          <button 
+                            onClick={() => handleEditSection(section)}
+                            className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
+                            title="Edit Section"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteSection(section.id)}
+                            className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
+                            title="Delete Section"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
                         </div>
-                        
-                        {!collapsedSections[section.id] && (
-                          <div className="p-4 space-y-2">
-                            {section.lessons?.map((lesson, lessonIndex) => (
-                              <div key={lesson.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                      </div>
+                      
+                      {!collapsedSections[section.id] && (
+                        <div className="p-4 space-y-2">
+                          {section.content?.length > 0 ? (
+                            section.content.map((content, contentIndex) => (
+                              <div key={content.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg group">
                                 <div className="flex items-center space-x-3">
-                                  <Play className="h-4 w-4 text-blue-500" />
+                                  <GripVertical className="h-4 w-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                  {content.type === 'lesson' ? (
+                                    <Play className="h-4 w-4 text-blue-500" />
+                                  ) : (
+                                    <Award className="h-4 w-4 text-purple-500" />
+                                  )}
                                   <div>
                                     <span className="text-sm font-medium text-gray-900 dark:text-white">
-                                      {lesson.title}
+                                      {content.title}
                                     </span>
                                     <div className="flex items-center space-x-2 text-xs text-gray-500 dark:text-gray-400">
-                                      <span>{lesson.duration_minutes || 10} min</span>
-                                      {lesson.video_url && (
-                                        <span className="text-blue-600 dark:text-blue-400">Video</span>
+                                      <span className={`px-2 py-1 rounded ${
+                                        content.type === 'lesson' 
+                                          ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400'
+                                          : 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400'
+                                      }`}>
+                                        {content.type === 'lesson' ? 'Lesson' : content.assessment_type || 'Assessment'}
+                                      </span>
+                                      {content.type === 'lesson' && (
+                                        <>
+                                          <span>{content.duration_minutes || 10} min</span>
+                                          {content.video_url && (
+                                            <span className="text-blue-600 dark:text-blue-400">Video</span>
+                                          )}
+                                        </>
+                                      )}
+                                      {content.type === 'assessment' && (
+                                        <span>{content.passing_score || 70}% to pass</span>
                                       )}
                                     </div>
                                   </div>
                                 </div>
                                 <div className="flex items-center space-x-1">
                                   <button 
-                                    onClick={() => handleEditLesson(lesson)}
+                                    onClick={() => handleMoveContent(section.id, content.id, 'up')}
+                                    disabled={contentIndex === 0}
+                                    className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                                    title="Move Up"
+                                  >
+                                    <ArrowUp className="h-3 w-3" />
+                                  </button>
+                                  <button 
+                                    onClick={() => handleMoveContent(section.id, content.id, 'down')}
+                                    disabled={contentIndex === section.content.length - 1}
+                                    className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                                    title="Move Down"
+                                  >
+                                    <ArrowDown className="h-3 w-3" />
+                                  </button>
+                                  <div className="w-px h-4 bg-gray-300 dark:bg-gray-600 mx-1"></div>
+                                  {content.type === 'assessment' && (
+                                    <Link
+                                      to={`/admin/assessment-builder/${courseId}/${content.id}`}
+                                      className="p-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded"
+                                      title="Manage Questions"
+                                    >
+                                      <Settings className="h-3 w-3" />
+                                    </Link>
+                                  )}
+                                  <button 
+                                    onClick={() => handleEditContent(content)}
                                     className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
-                                    title="Edit Lesson"
+                                    title="Edit"
                                   >
                                     <Edit className="h-3 w-3" />
                                   </button>
                                   <button 
-                                    onClick={() => handleDeleteLesson(lesson.id)}
+                                    onClick={() => handleDeleteContent(content.id, content.type)}
                                     className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
-                                    title="Delete Lesson"
+                                    title="Delete"
                                   >
                                     <Trash2 className="h-3 w-3" />
                                   </button>
                                 </div>
                               </div>
-                            )) || (
-                              <div className="text-center py-4">
-                                <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
-                                  No lessons in this section
-                                </p>
+                            ))
+                          ) : (
+                            <div className="text-center py-8">
+                              <div className="flex items-center justify-center space-x-4 mb-4">
+                                <Play className="h-8 w-8 text-gray-300" />
+                                <Award className="h-8 w-8 text-gray-300" />
+                              </div>
+                              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                                No content in this section yet
+                              </p>
+                              <div className="flex items-center justify-center space-x-2">
                                 <button 
-                                  onClick={() => handleAddLesson(section.id)}
-                                  className="text-sm text-primary-600 hover:text-primary-700 flex items-center space-x-1 mx-auto"
+                                  onClick={() => handleAddContent(section.id, 'lesson')}
+                                  className="text-sm text-blue-600 hover:text-blue-700 flex items-center space-x-1"
                                 >
-                                  <Plus className="h-3 w-3" />
-                                  <span>Add First Lesson</span>
+                                  <Play className="h-3 w-3" />
+                                  <span>Add Lesson</span>
+                                </button>
+                                <span className="text-gray-300">or</span>
+                                <button 
+                                  onClick={() => handleAddContent(section.id, 'assessment')}
+                                  className="text-sm text-purple-600 hover:text-purple-700 flex items-center space-x-1"
+                                >
+                                  <Award className="h-3 w-3" />
+                                  <span>Add Assessment</span>
                                 </button>
                               </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-
-              {/* Assessments */}
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                    Course Assessments
-                  </h2>
-                  <button 
-                    onClick={() => setShowAssessmentModal(true)}
-                    className="bg-gradient-to-r from-primary-500 to-secondary-500 text-white px-4 py-2 rounded-lg hover:from-primary-600 hover:to-secondary-600 transition-colors flex items-center space-x-2"
-                  >
-                    <Plus className="h-4 w-4" />
-                    <span>Add Assessment</span>
-                  </button>
-                </div>
-
-                <div className="space-y-4">
-                  {assessments.length === 0 ? (
-                    <div className="text-center py-8">
-                      <Award className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-500 dark:text-gray-400 mb-4">
-                        No assessments created yet
-                      </p>
-                      <button 
-                        onClick={() => setShowAssessmentModal(true)}
-                        className="bg-gradient-to-r from-primary-500 to-secondary-500 text-white px-4 py-2 rounded-lg hover:from-primary-600 hover:to-secondary-600 transition-colors"
-                      >
-                        Create First Assessment
-                      </button>
-                    </div>
-                  ) : (
-                    assessments.map((assessment) => (
-                      <div key={assessment.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center space-x-2 mb-2">
-                              <h3 className="font-medium text-gray-900 dark:text-white">
-                                {assessment.title}
-                              </h3>
-                              <span className={`px-2 py-1 text-xs rounded-full ${
-                                assessment.is_published 
-                                  ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
-                                  : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400'
-                              }`}>
-                                {assessment.is_published ? 'Published' : 'Draft'}
-                              </span>
-                              <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400 rounded-full">
-                                {assessment.assessment_type}
-                              </span>
                             </div>
-                            
-                            {assessment.description && (
-                              <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">
-                                {assessment.description}
-                              </p>
-                            )}
-                            
-                            <div className="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
-                              <span>{assessment.questions?.[0]?.count || 0} questions</span>
-                              <span>{assessment.passing_score}% to pass</span>
-                              {assessment.time_limit_minutes && (
-                                <span>{assessment.time_limit_minutes} min limit</span>
-                              )}
-                            </div>
-                          </div>
-                          
-                          <div className="flex items-center space-x-2 ml-4">
-                            <Link
-                              to={`/admin/assessment-builder/${courseId}/${assessment.id}`}
-                              className="p-2 text-blue-600 hover:text-blue-700 bg-blue-50 dark:bg-blue-900/20 rounded-lg transition-colors"
-                              title="Manage Questions"
-                            >
-                              <Settings className="h-4 w-4" />
-                            </Link>
-                            <button
-                              onClick={() => handleEditAssessment(assessment)}
-                              className="p-2 text-gray-600 hover:text-gray-700 bg-gray-50 dark:bg-gray-700 rounded-lg transition-colors"
-                              title="Edit Assessment"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteAssessment(assessment.id)}
-                              className="p-2 text-red-600 hover:text-red-700 bg-red-50 dark:bg-red-900/20 rounded-lg transition-colors"
-                              title="Delete Assessment"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
+                          )}
                         </div>
-                      </div>
-                    ))
-                  )}
-                </div>
+                      )}
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           </div>
@@ -1194,27 +1042,17 @@ const CourseEditor = () => {
         onSave={handleSaveSection}
       />
 
-      <LessonModal
-        isOpen={showLessonModal}
+      <ContentModal
+        isOpen={showContentModal}
         onClose={() => {
-          setShowLessonModal(false)
-          setEditingLesson(null)
+          setShowContentModal(false)
+          setEditingContent(null)
           setSelectedSectionId(null)
         }}
         sectionId={selectedSectionId}
-        lesson={editingLesson}
-        onSave={handleSaveLesson}
-      />
-
-      <AssessmentModal
-        isOpen={showAssessmentModal}
-        onClose={() => {
-          setShowAssessmentModal(false)
-          setEditingAssessment(null)
-        }}
-        courseId={courseId}
-        assessment={editingAssessment}
-        onSave={handleSaveAssessment}
+        content={editingContent}
+        contentType={contentType}
+        onSave={handleSaveContent}
       />
     </>
   )
