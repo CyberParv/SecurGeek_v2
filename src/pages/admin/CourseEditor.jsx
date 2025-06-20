@@ -182,7 +182,33 @@ const ContentModal = ({ isOpen, onClose, sectionId, content, contentType, onSave
     onSubmit: async (values) => {
       setLoading(true)
       try {
-        await onSave(values, contentType)
+        // Filter values based on content type to prevent schema mismatches
+        let filteredValues = {
+          title: values.title,
+          description: values.description,
+        }
+
+        if (contentType === 'lesson') {
+          filteredValues = {
+            ...filteredValues,
+            content: values.content,
+            video_url: values.video_url,
+            duration_minutes: values.duration_minutes,
+          }
+        } else {
+          filteredValues = {
+            ...filteredValues,
+            assessment_type: values.assessment_type,
+            instructions: values.instructions,
+            time_limit_minutes: values.time_limit_minutes || null,
+            passing_score: values.passing_score,
+            max_attempts: values.max_attempts,
+            is_required: values.is_required,
+            is_published: values.is_published,
+          }
+        }
+
+        await onSave(filteredValues, contentType)
         onClose()
         formik.resetForm()
       } catch (error) {
@@ -519,13 +545,24 @@ const CourseEditor = () => {
         ))
         toast.success('Section updated successfully!')
       } else {
-        // Create new section
+        // Create new section - calculate next order_index
+        const { data: existingSections, error: fetchError } = await supabase
+          .from('course_sections')
+          .select('order_index')
+          .eq('course_id', courseId)
+          .order('order_index', { ascending: false })
+          .limit(1)
+
+        if (fetchError) throw fetchError
+
+        const nextOrderIndex = existingSections.length > 0 ? existingSections[0].order_index + 1 : 0
+
         const { data, error } = await supabase
           .from('course_sections')
           .insert({
             ...sectionData,
             course_id: courseId,
-            order_index: sections.length
+            order_index: nextOrderIndex
           })
           .select()
           .single()
@@ -567,21 +604,25 @@ const CourseEditor = () => {
         })))
         toast.success(`${type} updated successfully!`)
       } else {
-        // Create new content
-        const sectionContent = sections.find(s => s.id === selectedSectionId)?.content || []
+        // Create new content - calculate next order_index for this section
         const table = type === 'lesson' ? 'lessons' : 'assessments'
+        
+        const { data: existingContent, error: fetchError } = await supabase
+          .from(table)
+          .select('order_index')
+          .eq('section_id', selectedSectionId)
+          .order('order_index', { ascending: false })
+          .limit(1)
+
+        if (fetchError) throw fetchError
+
+        const nextOrderIndex = existingContent.length > 0 ? existingContent[0].order_index + 1 : 0
         
         const insertData = {
           ...contentData,
-          order_index: sectionContent.length
-        }
-
-        if (type === 'lesson') {
-          insertData.course_id = courseId
-          insertData.section_id = selectedSectionId
-        } else {
-          insertData.course_id = courseId
-          insertData.section_id = selectedSectionId
+          course_id: courseId,
+          section_id: selectedSectionId,
+          order_index: nextOrderIndex
         }
 
         const { data, error } = await supabase
@@ -875,20 +916,20 @@ const CourseEditor = () => {
                           </span>
                         </div>
                         <div className="flex items-center space-x-2">
-                          <div className="flex items-center space-x-1">
+                          <div className="flex items-center space-x-2">
                             <button 
                               onClick={() => handleAddContent(section.id, 'lesson')}
-                              className="p-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded"
+                              className="px-3 py-1 text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md border border-blue-200 dark:border-blue-800 transition-colors"
                               title="Add Lesson"
                             >
-                              <Play className="h-4 w-4" />
+                              Add Lesson
                             </button>
                             <button 
                               onClick={() => handleAddContent(section.id, 'assessment')}
-                              className="p-1 text-purple-600 hover:text-purple-700 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded"
+                              className="px-3 py-1 text-sm text-purple-600 hover:text-purple-700 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-md border border-purple-200 dark:border-purple-800 transition-colors"
                               title="Add Assessment"
                             >
-                              <Award className="h-4 w-4" />
+                              Add Assessment
                             </button>
                           </div>
                           <div className="w-px h-4 bg-gray-300 dark:bg-gray-600"></div>
