@@ -25,6 +25,8 @@ import CoursePlayer from './pages/CoursePlayer'
 import Dashboard from './pages/Dashboard'
 import Profile from './pages/Profile'
 import AdminDashboard from './pages/admin/AdminDashboard'
+import AssessmentInterface from './pages/AssessmentInterface'
+import AssessmentBuilder from './pages/admin/AssessmentBuilder'
 import NotFound from './pages/NotFound'
 
 // Auth Components
@@ -106,6 +108,11 @@ function AppContent() {
                 <CoursePlayer />
               </ProtectedRoute>
             } />
+            <Route path="/assessment/:assessmentId" element={
+              <ProtectedRoute>
+                <AssessmentInterface />
+              </ProtectedRoute>
+            } />
             <Route path="/dashboard" element={
               <ProtectedRoute>
                 <Dashboard />
@@ -119,6 +126,11 @@ function AppContent() {
             <Route path="/admin/*" element={
               <AdminRoute>
                 <AdminDashboard />
+              </AdminRoute>
+            } />
+            <Route path="/admin/assessment-builder/:courseId/:assessmentId" element={
+              <AdminRoute>
+                <AssessmentBuilder />
               </AdminRoute>
             } />
             <Route path="*" element={<NotFound />} />

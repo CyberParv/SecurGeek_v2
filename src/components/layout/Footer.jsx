@@ -1,8 +1,53 @@
 import { Link } from 'react-router-dom'
+import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Shield, Mail, Phone, MapPin, ArrowRight, Heart } from 'lucide-react'
+import { supabase } from '../../lib/supabase'
 
 const Footer = () => {
+  const [topCourses, setTopCourses] = useState([])
+
+  useEffect(() => {
+    fetchTopCourses()
+  }, [])
+
+  const fetchTopCourses = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('courses')
+        .select(`
+          id,
+          title,
+          enrollments:enrollments(count)
+        `)
+        .eq('status', 'published')
+        .order('created_at', { ascending: false })
+        .limit(4)
+
+      if (error) throw error
+
+      // Sort by enrollment count and take top 4
+      const sortedCourses = (data || [])
+        .sort((a, b) => {
+          const aEnrollments = a.enrollments?.[0]?.count || 0
+          const bEnrollments = b.enrollments?.[0]?.count || 0
+          return bEnrollments - aEnrollments
+        })
+        .slice(0, 4)
+
+      setTopCourses(sortedCourses)
+    } catch (error) {
+      console.error('Error fetching top courses:', error)
+      // Fallback to static courses
+      setTopCourses([
+        { id: null, title: 'Cybersecurity Basics' },
+        { id: null, title: 'Social Engineering Defense' },
+        { id: null, title: 'Data Privacy Fundamentals' },
+        { id: null, title: 'Incident Response' }
+      ])
+    }
+  }
+
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -80,22 +125,17 @@ const Footer = () => {
           {/* Courses */}
           <motion.div variants={itemVariants}>
             <h3 className="text-xl font-bold mb-6 bg-gradient-to-r from-primary-400 to-secondary-400 bg-clip-text text-transparent">
-              Courses
+              Popular Courses
             </h3>
             <ul className="space-y-4">
-              {[
-                'Cybersecurity Basics',
-                'Social Engineering Defense',
-                'Data Privacy Fundamentals',
-                'Incident Response'
-              ].map((course, index) => (
-                <motion.li key={index} whileHover={{ x: 5 }}>
+              {topCourses.map((course, index) => (
+                <motion.li key={course.id || index} whileHover={{ x: 5 }}>
                   <Link 
-                    to="/courses" 
+                    to={course.id ? `/courses/${course.id}` : '/courses'}
                     className="text-gray-400 hover:text-white transition-colors flex items-center space-x-2 group"
                   >
                     <ArrowRight className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity" />
-                    <span>{course}</span>
+                    <span>{course.title}</span>
                   </Link>
                 </motion.li>
               ))}

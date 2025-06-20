@@ -32,26 +32,13 @@ import LoadingSpinner from '../components/ui/LoadingSpinner'
 const FloatingElements = () => {
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none">
-      {/* Floating geometric shapes */}
+      {/* Optimized floating geometric shapes */}
       <motion.div
-        className="absolute top-20 left-10 w-16 h-16 bg-gradient-to-r from-primary-400/20 to-secondary-400/20 rounded-full blur-xl"
+        className="absolute top-20 left-10 w-12 h-12 bg-gradient-to-r from-primary-400/10 to-secondary-400/10 rounded-full blur-sm"
         animate={{
-          y: [0, -15, 0],
-          x: [0, 8, 0],
-          scale: [1, 1.05, 1],
-        }}
-        transition={{
-          duration: 6,
-          repeat: Infinity,
-          ease: "easeInOut"
-        }}
-      />
-      <motion.div
-        className="absolute top-32 right-16 w-12 h-12 bg-gradient-to-r from-secondary-400/20 to-primary-400/20 rounded-lg blur-xl"
-        animate={{
-          y: [0, 12, 0],
-          x: [0, -12, 0],
-          rotate: [0, 180, 360],
+          y: [0, -10, 0],
+          x: [0, 5, 0],
+          scale: [1, 1.02, 1],
         }}
         transition={{
           duration: 8,
@@ -60,13 +47,26 @@ const FloatingElements = () => {
         }}
       />
       <motion.div
-        className="absolute bottom-32 left-1/4 w-10 h-10 bg-gradient-to-r from-cyber-400/20 to-primary-400/20 rounded-full blur-xl"
+        className="absolute top-32 right-16 w-8 h-8 bg-gradient-to-r from-secondary-400/10 to-primary-400/10 rounded-lg blur-sm"
         animate={{
-          y: [0, -20, 0],
-          scale: [1, 1.15, 1],
+          y: [0, 8, 0],
+          x: [0, -8, 0],
+          rotate: [0, 90, 180, 270, 360],
         }}
         transition={{
-          duration: 5,
+          duration: 12,
+          repeat: Infinity,
+          ease: "easeInOut"
+        }}
+      />
+      <motion.div
+        className="absolute bottom-32 left-1/4 w-6 h-6 bg-gradient-to-r from-cyber-400/10 to-primary-400/10 rounded-full blur-sm"
+        animate={{
+          y: [0, -12, 0],
+          scale: [1, 1.08, 1],
+        }}
+        transition={{
+          duration: 10,
           repeat: Infinity,
           ease: "easeInOut"
         }}
@@ -84,35 +84,35 @@ const Hero = () => {
     visible: {
       opacity: 1,
       transition: {
-        staggerChildren: 0.15,
+        staggerChildren: 0.1,
         delayChildren: 0.1
       }
     }
   }
 
   const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
+    hidden: { opacity: 0, y: 15 },
     visible: {
       opacity: 1,
       y: 0,
       transition: {
-        duration: 0.6,
+        duration: 0.5,
         ease: "easeOut"
       }
     }
   }
 
   return (
-    <section className="relative bg-gradient-to-br from-primary-50 via-white to-secondary-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 overflow-hidden py-20">
-      {/* Animated background pattern */}
-      <div className="absolute inset-0 bg-grid-pattern opacity-5"></div>
+    <section className="relative bg-gradient-to-br from-primary-50 via-white to-secondary-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 overflow-hidden py-16">
+      {/* Optimized background pattern */}
+      <div className="absolute inset-0 bg-grid-pattern opacity-3"></div>
       
       {/* Floating elements */}
       <FloatingElements />
       
-      {/* Gradient orbs */}
-      <div className="absolute top-0 left-0 w-72 h-72 bg-gradient-to-r from-primary-500/10 to-secondary-500/10 rounded-full blur-3xl"></div>
-      <div className="absolute bottom-0 right-0 w-72 h-72 bg-gradient-to-r from-secondary-500/10 to-cyber-500/10 rounded-full blur-3xl"></div>
+      {/* Optimized gradient orbs */}
+      <div className="absolute top-0 left-0 w-48 h-48 bg-gradient-to-r from-primary-500/5 to-secondary-500/5 rounded-full blur-2xl"></div>
+      <div className="absolute bottom-0 right-0 w-48 h-48 bg-gradient-to-r from-secondary-500/5 to-cyber-500/5 rounded-full blur-2xl"></div>
       
       <div className="container mx-auto px-4 relative z-10">
         <motion.div 
@@ -124,8 +124,8 @@ const Hero = () => {
           <motion.div variants={itemVariants}>
             <motion.div 
               className="inline-flex items-center space-x-2 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-primary-200 dark:border-primary-800 rounded-full px-4 py-2 mb-6"
-              whileHover={{ scale: 1.02 }}
-              transition={{ type: "spring", stiffness: 300 }}
+              whileHover={{ scale: 1.01 }}
+              transition={{ type: "spring", stiffness: 400 }}
             >
               <Zap className="h-4 w-4 text-primary-600" />
               <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -137,15 +137,15 @@ const Hero = () => {
           <motion.div variants={itemVariants}>
             <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold text-gray-900 dark:text-white mb-6 leading-tight">
               Learn{' '}
-              <span className="relative">
+              <span className="relative inline-block">
                 <span className="bg-gradient-to-r from-primary-600 via-secondary-600 to-cyber-600 bg-clip-text text-transparent">
                   Cybersecurity
                 </span>
                 <motion.div
-                  className="absolute -bottom-1 left-0 right-0 h-1 bg-gradient-to-r from-primary-600 to-secondary-600 rounded-full"
+                  className="absolute -bottom-1 left-0 right-0 h-1 bg-gradient-to-r from-primary-600 to-secondary-600 rounded-full -z-10"
                   initial={{ scaleX: 0 }}
                   animate={{ scaleX: 1 }}
-                  transition={{ delay: 1, duration: 0.8 }}
+                  transition={{ delay: 0.8, duration: 0.6 }}
                 />
               </span>{' '}
               <br />Anywhere, Anytime
@@ -171,10 +171,10 @@ const Hero = () => {
               <motion.div
                 key={index}
                 className="text-center group"
-                whileHover={{ scale: 1.05 }}
-                transition={{ type: "spring", stiffness: 300 }}
+                whileHover={{ scale: 1.02 }}
+                transition={{ type: "spring", stiffness: 400 }}
               >
-                <div className={`w-12 h-12 mx-auto mb-2 bg-gradient-to-r ${stat.color} rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow duration-300`}>
+                <div className={`w-12 h-12 mx-auto mb-2 bg-gradient-to-r ${stat.color} rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow duration-200`}>
                   <stat.icon className="h-6 w-6 text-white" />
                 </div>
                 <div className="text-2xl font-bold text-gray-900 dark:text-white mb-1">{stat.number}</div>
@@ -188,28 +188,28 @@ const Hero = () => {
             className="flex flex-col sm:flex-row gap-4 justify-center"
           >
             <motion.div
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+              whileHover={{ scale: 1.01 }}
+              whileTap={{ scale: 0.99 }}
             >
               <Link
                 to="/courses"
-                className="group relative bg-gradient-to-r from-primary-500 to-secondary-500 text-white px-6 py-3 rounded-xl text-lg font-semibold hover:from-primary-600 hover:to-secondary-600 transition-all duration-300 flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl"
+                className="group relative bg-gradient-to-r from-primary-500 to-secondary-500 text-white px-6 py-3 rounded-xl text-lg font-semibold hover:from-primary-600 hover:to-secondary-600 transition-all duration-200 flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl"
               >
-                <BookOpen className="h-5 w-5 group-hover:rotate-12 transition-transform duration-300" />
+                <BookOpen className="h-5 w-5 group-hover:rotate-6 transition-transform duration-200" />
                 <span>Start Learning</span>
-                <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform duration-300" />
+                <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform duration-200" />
               </Link>
             </motion.div>
             
             <motion.div
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+              whileHover={{ scale: 1.01 }}
+              whileTap={{ scale: 0.99 }}
             >
               <Link
                 to="/courses"
-                className="group relative border-2 border-primary-500 text-primary-600 dark:text-primary-400 px-6 py-3 rounded-xl text-lg font-semibold hover:bg-primary-500 hover:text-white transition-all duration-300 flex items-center justify-center space-x-2 backdrop-blur-sm bg-white/50 dark:bg-gray-800/50"
+                className="group relative border-2 border-primary-500 text-primary-600 dark:text-primary-400 px-6 py-3 rounded-xl text-lg font-semibold hover:bg-primary-500 hover:text-white transition-all duration-200 flex items-center justify-center space-x-2 backdrop-blur-sm bg-white/50 dark:bg-gray-800/50"
               >
-                <Play className="h-5 w-5 group-hover:scale-110 transition-transform duration-300" />
+                <Play className="h-5 w-5 group-hover:scale-105 transition-transform duration-200" />
                 <span>Preview Lessons</span>
               </Link>
             </motion.div>
@@ -255,12 +255,12 @@ const VideoLearningFeatures = () => {
           className="text-center mb-12"
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
+          transition={{ duration: 0.5 }}
           viewport={{ once: true }}
         >
           <motion.div
             className="inline-flex items-center space-x-2 bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400 rounded-full px-4 py-2 mb-4"
-            whileHover={{ scale: 1.02 }}
+            whileHover={{ scale: 1.01 }}
           >
             <Eye className="h-4 w-4" />
             <span className="font-medium">Why Video Learning?</span>
@@ -278,21 +278,21 @@ const VideoLearningFeatures = () => {
             <motion.div
               key={index}
               className="group relative"
-              initial={{ opacity: 0, y: 30 }}
+              initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: feature.delay }}
+              transition={{ duration: 0.5, delay: feature.delay }}
               viewport={{ once: true }}
-              whileHover={{ y: -5 }}
+              whileHover={{ y: -3 }}
             >
-              <div className="relative bg-white dark:bg-gray-700 rounded-2xl p-6 shadow-lg group-hover:shadow-xl transition-all duration-300 border border-gray-100 dark:border-gray-600 overflow-hidden">
+              <div className="relative bg-white dark:bg-gray-700 rounded-2xl p-6 shadow-lg group-hover:shadow-xl transition-all duration-200 border border-gray-100 dark:border-gray-600 overflow-hidden">
                 {/* Gradient background on hover */}
-                <div className={`absolute inset-0 bg-gradient-to-br ${feature.color} opacity-0 group-hover:opacity-5 transition-opacity duration-500`}></div>
+                <div className={`absolute inset-0 bg-gradient-to-br ${feature.color} opacity-0 group-hover:opacity-5 transition-opacity duration-300`}></div>
                 
                 <div className="relative z-10">
-                  <div className={`inline-flex items-center justify-center w-12 h-12 bg-gradient-to-r ${feature.color} rounded-xl mb-4 group-hover:scale-110 transition-transform duration-300 shadow-lg`}>
+                  <div className={`inline-flex items-center justify-center w-12 h-12 bg-gradient-to-r ${feature.color} rounded-xl mb-4 group-hover:scale-105 transition-transform duration-200 shadow-lg`}>
                     <feature.icon className="h-6 w-6 text-white" />
                   </div>
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors duration-300">
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors duration-200">
                     {feature.title}
                   </h3>
                   <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
@@ -372,8 +372,8 @@ const FeaturedCourses = () => {
     <section className="py-16 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 relative overflow-hidden">
       {/* Background decoration */}
       <div className="absolute inset-0">
-        <div className="absolute top-16 left-8 w-24 h-24 bg-primary-500/5 rounded-full blur-2xl"></div>
-        <div className="absolute bottom-16 right-8 w-32 h-32 bg-secondary-500/5 rounded-full blur-2xl"></div>
+        <div className="absolute top-16 left-8 w-16 h-16 bg-primary-500/3 rounded-full blur-xl"></div>
+        <div className="absolute bottom-16 right-8 w-20 h-20 bg-secondary-500/3 rounded-full blur-xl"></div>
       </div>
       
       <div className="container mx-auto px-4 relative z-10">
@@ -381,12 +381,12 @@ const FeaturedCourses = () => {
           className="text-center mb-12"
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
+          transition={{ duration: 0.5 }}
           viewport={{ once: true }}
         >
           <motion.div
             className="inline-flex items-center space-x-2 bg-gradient-to-r from-primary-500 to-secondary-500 text-white rounded-full px-4 py-2 mb-4"
-            whileHover={{ scale: 1.02 }}
+            whileHover={{ scale: 1.01 }}
           >
             <BookOpen className="h-4 w-4" />
             <span className="font-medium">Featured Courses</span>
@@ -404,19 +404,19 @@ const FeaturedCourses = () => {
             <motion.div
               key={course.id || index}
               className="group relative"
-              initial={{ opacity: 0, y: 30 }}
+              initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: index * 0.1 }}
+              transition={{ duration: 0.5, delay: index * 0.1 }}
               viewport={{ once: true }}
-              whileHover={{ y: -5 }}
+              whileHover={{ y: -3 }}
             >
-              <div className={`relative bg-gradient-to-br ${course.gradient || 'from-white to-gray-50 dark:from-gray-800 dark:to-gray-700'} rounded-2xl p-6 shadow-lg group-hover:shadow-xl transition-all duration-300 border border-gray-200 dark:border-gray-600 overflow-hidden`}>
+              <div className={`relative bg-gradient-to-br ${course.gradient || 'from-white to-gray-50 dark:from-gray-800 dark:to-gray-700'} rounded-2xl p-6 shadow-lg group-hover:shadow-xl transition-all duration-200 border border-gray-200 dark:border-gray-600 overflow-hidden`}>
                 {/* Animated border */}
-                <div className="absolute inset-0 bg-gradient-to-r from-primary-500 via-secondary-500 to-cyber-500 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                <div className="absolute inset-0 bg-gradient-to-r from-primary-500 via-secondary-500 to-cyber-500 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                 <div className="absolute inset-[2px] bg-white dark:bg-gray-800 rounded-2xl"></div>
                 
                 <div className="relative z-10">
-                  <div className={`inline-flex items-center justify-center w-12 h-12 bg-gradient-to-r ${course.color || 'from-primary-500 to-secondary-500'} rounded-xl mb-4 group-hover:scale-110 transition-transform duration-300 shadow-lg`}>
+                  <div className={`inline-flex items-center justify-center w-12 h-12 bg-gradient-to-r ${course.color || 'from-primary-500 to-secondary-500'} rounded-xl mb-4 group-hover:scale-105 transition-transform duration-200 shadow-lg`}>
                     {course.icon ? (
                       <course.icon className="h-6 w-6 text-white" />
                     ) : (
@@ -424,7 +424,7 @@ const FeaturedCourses = () => {
                     )}
                   </div>
                   
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors duration-300">
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors duration-200">
                     {course.title}
                   </h3>
                   
@@ -433,15 +433,15 @@ const FeaturedCourses = () => {
                   </p>
                   
                   <motion.div
-                    whileHover={{ x: 5 }}
-                    transition={{ type: "spring", stiffness: 300 }}
+                    whileHover={{ x: 3 }}
+                    transition={{ type: "spring", stiffness: 400 }}
                   >
                     <Link
                       to={course.id ? `/courses/${course.id}` : '/courses'}
-                      className="inline-flex items-center space-x-2 text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 font-semibold group-hover:text-primary-700 transition-colors duration-300"
+                      className="inline-flex items-center space-x-2 text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 font-semibold group-hover:text-primary-700 transition-colors duration-200"
                     >
                       <span>View Details</span>
-                      <ChevronRight className="h-4 w-4 group-hover:translate-x-1 transition-transform duration-300" />
+                      <ChevronRight className="h-4 w-4 group-hover:translate-x-1 transition-transform duration-200" />
                     </Link>
                   </motion.div>
                 </div>
@@ -454,19 +454,19 @@ const FeaturedCourses = () => {
           className="text-center"
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.3 }}
+          transition={{ duration: 0.5, delay: 0.3 }}
           viewport={{ once: true }}
         >
           <motion.div
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
+            whileHover={{ scale: 1.01 }}
+            whileTap={{ scale: 0.99 }}
           >
             <Link
               to="/courses"
-              className="group inline-flex items-center space-x-2 bg-gradient-to-r from-primary-500 to-secondary-500 text-white px-6 py-3 rounded-xl hover:from-primary-600 hover:to-secondary-600 transition-all duration-300 shadow-lg hover:shadow-xl font-semibold"
+              className="group inline-flex items-center space-x-2 bg-gradient-to-r from-primary-500 to-secondary-500 text-white px-6 py-3 rounded-xl hover:from-primary-600 hover:to-secondary-600 transition-all duration-200 shadow-lg hover:shadow-xl font-semibold"
             >
               <span>View All Courses</span>
-              <ChevronRight className="h-5 w-5 group-hover:translate-x-1 transition-transform duration-300" />
+              <ChevronRight className="h-5 w-5 group-hover:translate-x-1 transition-transform duration-200" />
             </Link>
           </motion.div>
         </motion.div>
@@ -488,20 +488,20 @@ const WhyChooseUs = () => {
   return (
     <section className="py-16 bg-white dark:bg-gray-800 relative overflow-hidden">
       {/* Background decoration */}
-      <div className="absolute top-0 right-0 w-72 h-72 bg-gradient-to-l from-primary-500/5 to-transparent rounded-full blur-3xl"></div>
-      <div className="absolute bottom-0 left-0 w-72 h-72 bg-gradient-to-r from-secondary-500/5 to-transparent rounded-full blur-3xl"></div>
+      <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-l from-primary-500/3 to-transparent rounded-full blur-2xl"></div>
+      <div className="absolute bottom-0 left-0 w-48 h-48 bg-gradient-to-r from-secondary-500/3 to-transparent rounded-full blur-2xl"></div>
       
       <div className="container mx-auto px-4 relative z-10">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
           <motion.div
-            initial={{ opacity: 0, x: -30 }}
+            initial={{ opacity: 0, x: -20 }}
             whileInView={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.6 }}
+            transition={{ duration: 0.5 }}
             viewport={{ once: true }}
           >
             <motion.div
               className="inline-flex items-center space-x-2 bg-success-50 dark:bg-success-900/20 text-success-600 dark:text-success-400 rounded-full px-4 py-2 mb-4"
-              whileHover={{ scale: 1.02 }}
+              whileHover={{ scale: 1.01 }}
             >
               <Award className="h-4 w-4" />
               <span className="font-medium">Why Choose Us</span>
@@ -516,16 +516,16 @@ const WhyChooseUs = () => {
                 <motion.div
                   key={index}
                   className="flex items-center space-x-3 group"
-                  initial={{ opacity: 0, x: -20 }}
+                  initial={{ opacity: 0, x: -15 }}
                   whileInView={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.5, delay: index * 0.1 }}
+                  transition={{ duration: 0.4, delay: index * 0.1 }}
                   viewport={{ once: true }}
-                  whileHover={{ x: 8 }}
+                  whileHover={{ x: 5 }}
                 >
-                  <div className="flex-shrink-0 w-6 h-6 bg-gradient-to-r from-success-500 to-success-600 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                  <div className="flex-shrink-0 w-6 h-6 bg-gradient-to-r from-success-500 to-success-600 rounded-full flex items-center justify-center group-hover:scale-105 transition-transform duration-200">
                     <CheckCircle className="h-4 w-4 text-white" />
                   </div>
-                  <span className="text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white transition-colors duration-300 font-medium">
+                  <span className="text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white transition-colors duration-200 font-medium">
                     {feature}
                   </span>
                 </motion.div>
@@ -535,20 +535,20 @@ const WhyChooseUs = () => {
           
           <motion.div 
             className="relative"
-            initial={{ opacity: 0, x: 30 }}
+            initial={{ opacity: 0, x: 20 }}
             whileInView={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.6, delay: 0.2 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
             viewport={{ once: true }}
           >
             <div className="relative">
               {/* Decorative elements */}
-              <div className="absolute -top-3 -left-3 w-16 h-16 bg-gradient-to-r from-primary-500 to-secondary-500 rounded-xl opacity-20 blur-xl"></div>
-              <div className="absolute -bottom-3 -right-3 w-20 h-20 bg-gradient-to-r from-secondary-500 to-cyber-500 rounded-xl opacity-20 blur-xl"></div>
+              <div className="absolute -top-2 -left-2 w-12 h-12 bg-gradient-to-r from-primary-500 to-secondary-500 rounded-xl opacity-20 blur-lg"></div>
+              <div className="absolute -bottom-2 -right-2 w-16 h-16 bg-gradient-to-r from-secondary-500 to-cyber-500 rounded-xl opacity-20 blur-lg"></div>
               
               <motion.div 
                 className="relative aspect-video bg-gradient-to-br from-primary-500 to-secondary-500 rounded-2xl flex items-center justify-center shadow-xl overflow-hidden"
-                whileHover={{ scale: 1.02 }}
-                transition={{ type: "spring", stiffness: 300 }}
+                whileHover={{ scale: 1.01 }}
+                transition={{ type: "spring", stiffness: 400 }}
               >
                 {/* Animated background pattern */}
                 <div className="absolute inset-0 bg-grid-pattern opacity-10"></div>
@@ -556,11 +556,11 @@ const WhyChooseUs = () => {
                 <div className="relative text-center text-white z-10">
                   <motion.div
                     animate={{ 
-                      scale: [1, 1.05, 1],
-                      rotate: [0, 3, -3, 0]
+                      scale: [1, 1.02, 1],
+                      rotate: [0, 1, -1, 0]
                     }}
                     transition={{ 
-                      duration: 4,
+                      duration: 6,
                       repeat: Infinity,
                       ease: "easeInOut"
                     }}
@@ -585,28 +585,28 @@ const CTA = () => {
 
   return (
     <section className="py-16 bg-gradient-to-br from-primary-500 via-secondary-500 to-cyber-500 relative overflow-hidden">
-      {/* Animated background elements */}
+      {/* Optimized animated background elements */}
       <div className="absolute inset-0">
         <motion.div
-          className="absolute top-8 left-8 w-16 h-16 bg-white/10 rounded-full blur-xl"
+          className="absolute top-8 left-8 w-12 h-12 bg-white/5 rounded-full blur-lg"
           animate={{
-            y: [0, -15, 0],
-            x: [0, 15, 0],
+            y: [0, -10, 0],
+            x: [0, 10, 0],
           }}
           transition={{
-            duration: 6,
+            duration: 8,
             repeat: Infinity,
             ease: "easeInOut"
           }}
         />
         <motion.div
-          className="absolute bottom-8 right-8 w-20 h-20 bg-white/10 rounded-full blur-xl"
+          className="absolute bottom-8 right-8 w-16 h-16 bg-white/5 rounded-full blur-lg"
           animate={{
-            y: [0, 15, 0],
-            x: [0, -15, 0],
+            y: [0, 10, 0],
+            x: [0, -10, 0],
           }}
           transition={{
-            duration: 8,
+            duration: 10,
             repeat: Infinity,
             ease: "easeInOut"
           }}
@@ -617,12 +617,12 @@ const CTA = () => {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
+          transition={{ duration: 0.5 }}
           viewport={{ once: true }}
         >
           <motion.div
             className="inline-flex items-center space-x-2 bg-white/20 backdrop-blur-sm text-white rounded-full px-4 py-2 mb-6"
-            whileHover={{ scale: 1.02 }}
+            whileHover={{ scale: 1.01 }}
           >
             <Shield className="h-4 w-4" />
             <span className="font-medium">Ready to Get Started?</span>
@@ -636,7 +636,7 @@ const CTA = () => {
                 className="absolute -bottom-1 left-0 right-0 h-1 bg-white/50 rounded-full"
                 initial={{ scaleX: 0 }}
                 whileInView={{ scaleX: 1 }}
-                transition={{ delay: 0.5, duration: 0.8 }}
+                transition={{ delay: 0.5, duration: 0.6 }}
                 viewport={{ once: true }}
               />
             </span>
@@ -647,26 +647,26 @@ const CTA = () => {
           </p>
           
           <motion.div
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
+            whileHover={{ scale: 1.01 }}
+            whileTap={{ scale: 0.99 }}
           >
             {isAuthenticated ? (
               <Link
                 to="/courses"
-                className="group inline-flex items-center space-x-2 bg-white text-primary-600 px-8 py-4 rounded-xl font-bold text-lg hover:bg-gray-100 transition-all duration-300 shadow-2xl hover:shadow-3xl"
+                className="group inline-flex items-center space-x-2 bg-white text-primary-600 px-8 py-4 rounded-xl font-bold text-lg hover:bg-gray-100 transition-all duration-200 shadow-2xl hover:shadow-3xl"
               >
-                <BookOpen className="h-5 w-5 group-hover:rotate-12 transition-transform duration-300" />
+                <BookOpen className="h-5 w-5 group-hover:rotate-6 transition-transform duration-200" />
                 <span>Browse Courses</span>
-                <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform duration-300" />
+                <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform duration-200" />
               </Link>
             ) : (
               <button
                 onClick={() => dispatch(openModal('signup'))}
-                className="group inline-flex items-center space-x-2 bg-white text-primary-600 px-8 py-4 rounded-xl font-bold text-lg hover:bg-gray-100 transition-all duration-300 shadow-2xl hover:shadow-3xl"
+                className="group inline-flex items-center space-x-2 bg-white text-primary-600 px-8 py-4 rounded-xl font-bold text-lg hover:bg-gray-100 transition-all duration-200 shadow-2xl hover:shadow-3xl"
               >
-                <Shield className="h-5 w-5 group-hover:rotate-12 transition-transform duration-300" />
+                <Shield className="h-5 w-5 group-hover:rotate-6 transition-transform duration-200" />
                 <span>Get Started Today</span>
-                <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform duration-300" />
+                <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform duration-200" />
               </button>
             )}
           </motion.div>

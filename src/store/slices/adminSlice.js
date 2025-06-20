@@ -10,6 +10,8 @@ const initialState = {
     totalEnrollments: 0,
     totalRevenue: 0,
     recentActivity: [],
+    roleDistribution: {},
+    coursePopularity: [],
   },
   detailedAnalytics: {
     coursePopularity: [],
@@ -280,6 +282,8 @@ export const fetchAnalytics = createAsyncThunk(
   'admin/fetchAnalytics',
   async (_, { rejectWithValue }) => {
     try {
+      console.log('Starting analytics fetch...')
+      
       // Fetch total counts with proper error handling
       const [usersResult, coursesResult, enrollmentsResult] = await Promise.allSettled([
         supabase.from('profiles').select('*', { count: 'exact', head: true }),
@@ -291,6 +295,8 @@ export const fetchAnalytics = createAsyncThunk(
       const usersCount = usersResult.status === 'fulfilled' ? usersResult.value.count : 0
       const coursesCount = coursesResult.status === 'fulfilled' ? coursesResult.value.count : 0
       const enrollmentsCount = enrollmentsResult.status === 'fulfilled' ? enrollmentsResult.value.count : 0
+      
+      console.log('Basic counts:', { usersCount, coursesCount, enrollmentsCount })
       
       // Fetch recent activity with error handling
       let recentActivity = []
@@ -309,6 +315,7 @@ export const fetchAnalytics = createAsyncThunk(
           console.error('Recent activity fetch error:', activityError)
         } else {
           recentActivity = activityData || []
+          console.log('Recent activity fetched:', recentActivity.length, 'items')
         }
       } catch (error) {
         console.error('Error fetching recent activity:', error)
@@ -328,18 +335,72 @@ export const fetchAnalytics = createAsyncThunk(
             const price = parseFloat(course.price) || 0
             return sum + price
           }, 0)
+          console.log('Total revenue calculated:', totalRevenue)
         }
       } catch (error) {
         console.error('Error calculating revenue:', error)
       }
+
+      // Fetch role distribution
+      let roleDistribution = {}
+      try {
+        const { data: profiles, error: profilesError } = await supabase
+          .from('profiles')
+          .select('role')
+        
+        if (profilesError) {
+          console.error('Role distribution fetch error:', profilesError)
+        } else {
+          roleDistribution = (profiles || []).reduce((acc, profile) => {
+            const role = profile.role || 'student'
+            acc[role] = (acc[role] || 0) + 1
+            return acc
+          }, {})
+          console.log('Role distribution:', roleDistribution)
+        }
+      } catch (error) {
+        console.error('Error fetching role distribution:', error)
+      }
+
+      // Fetch course popularity
+      let coursePopularity = []
+      try {
+        const { data: popularCourses, error: popularCoursesError } = await supabase
+          .from('courses')
+          .select(`
+            id,
+            title,
+            enrollments:enrollments(count)
+          `)
+          .order('created_at', { ascending: false })
+          .limit(10)
+        
+        if (popularCoursesError) {
+          console.error('Course popularity fetch error:', popularCoursesError)
+        } else {
+          coursePopularity = (popularCourses || []).map(course => ({
+            id: course.id,
+            title: course.title,
+            enrollments: course.enrollments?.[0]?.count || 0
+          })).sort((a, b) => b.enrollments - a.enrollments)
+          console.log('Course popularity:', coursePopularity.length, 'courses')
+        }
+      } catch (error) {
+        console.error('Error fetching course popularity:', error)
+      }
       
-      return {
+      const result = {
         totalUsers: usersCount || 0,
         totalCourses: coursesCount || 0,
         totalEnrollments: enrollmentsCount || 0,
         totalRevenue: totalRevenue.toFixed(2),
         recentActivity,
+        roleDistribution,
+        coursePopularity,
       }
+      
+      console.log('Analytics result:', result)
+      return result
     } catch (error) {
       console.error('Error in fetchAnalytics:', error)
       return rejectWithValue(error.message || 'Failed to fetch analytics')
@@ -351,6 +412,8 @@ export const fetchDetailedAnalytics = createAsyncThunk(
   'admin/fetchDetailedAnalytics',
   async (_, { rejectWithValue }) => {
     try {
+      console.log('Fetching detailed analytics...')
+      
       // Fetch course popularity (courses with most enrollments)
       let coursePopularity = []
       try {
@@ -495,13 +558,16 @@ export const fetchDetailedAnalytics = createAsyncThunk(
         console.error('Error fetching completion rates:', error)
       }
 
-      return {
+      const result = {
         coursePopularity,
         userRoleDistribution,
         enrollmentTrends,
         revenueByCategory,
         completionRates,
       }
+      
+      console.log('Detailed analytics result:', result)
+      return result
     } catch (error) {
       console.error('Error in fetchDetailedAnalytics:', error)
       return rejectWithValue(error.message || 'Failed to fetch detailed analytics')
