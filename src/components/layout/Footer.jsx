@@ -81,7 +81,7 @@ const Footer = () => {
       
       <div className="container mx-auto px-4 py-16 relative z-10">
         <motion.div 
-          className="grid grid-cols-1 md:grid-cols-4 gap-12"
+          className="grid grid-cols-1 md:grid-cols-4 gap-8"
           variants={containerVariants}
           initial="hidden"
           whileInView="visible"
@@ -150,28 +150,18 @@ const Footer = () => {
             <ul className="space-y-4">
               {[
                 { label: 'About Us', to: '/about' },
-                { label: 'Contact', action: true },
+                { label: 'Contact', to: '/contact' },
                 { label: 'Privacy Policy', to: '/privacy' },
                 { label: 'Terms of Service', to: '/terms' }
               ].map((item, index) => (
                 <motion.li key={index} whileHover={{ x: 5 }}>
-                  {item.to ? (
-                    <Link 
-                      to={item.to}
-                      className="text-gray-400 hover:text-white transition-colors flex items-center space-x-2 group"
-                    >
-                      <ArrowRight className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity" />
-                      <span>{item.label}</span>
-                    </Link>
-                  ) : (
-                    <button 
-                      onClick={() => {/* Open contact modal */}}
-                      className="text-gray-400 hover:text-white transition-colors flex items-center space-x-2 group"
-                    >
-                      <ArrowRight className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity" />
-                      <span>{item.label}</span>
-                    </button>
-                  )}
+                  <Link 
+                    to={item.to}
+                    className="text-gray-400 hover:text-white transition-colors flex items-center space-x-2 group"
+                  >
+                    <ArrowRight className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <span>{item.label}</span>
+                  </Link>
                 </motion.li>
               ))}
             </ul>

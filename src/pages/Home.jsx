@@ -142,7 +142,8 @@ const Hero = () => {
                   Cybersecurity
                 </span>
                 <motion.div
-                  className="absolute -bottom-1 left-0 right-0 h-1 bg-gradient-to-r from-primary-600 to-secondary-600 rounded-full -z-10"
+                  className="absolute -bottom-2 left-0 right-0 h-1 bg-gradient-to-r from-primary-600 to-secondary-600 rounded-full"
+                  style={{ zIndex: -1 }}
                   initial={{ scaleX: 0 }}
                   animate={{ scaleX: 1 }}
                   transition={{ delay: 0.8, duration: 0.6 }}
@@ -469,7 +470,7 @@ const FeaturedCourses = () => {
               <ChevronRight className="h-5 w-5 group-hover:translate-x-1 transition-transform duration-200" />
             </Link>
           </motion.div>
-        </motion.div>
+        </div>
       </div>
     </section>
   )
@@ -565,10 +566,18 @@ const WhyChooseUs = () => {
                       ease: "easeInOut"
                     }}
                   >
-                    <Users className="h-16 w-16 mx-auto mb-4" />
+                    <img 
+                      src="https://images.pexels.com/photos/3184465/pexels-photo-3184465.jpeg?auto=compress&cs=tinysrgb&w=800" 
+                      alt="Corporate Training Session"
+                      className="w-full h-full object-cover rounded-2xl"
+                    />
                   </motion.div>
-                  <h3 className="text-xl font-bold mb-2">Corporate Training Session</h3>
-                  <p className="text-lg opacity-90">Interactive cybersecurity workshops</p>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent rounded-2xl flex items-end justify-center p-6">
+                    <div className="text-center">
+                      <h3 className="text-xl font-bold mb-2">Corporate Training Session</h3>
+                      <p className="text-lg opacity-90">Interactive cybersecurity workshops</p>
+                    </div>
+                  </div>
                 </div>
               </motion.div>
             </div>
