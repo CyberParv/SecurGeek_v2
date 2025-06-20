@@ -44,9 +44,9 @@ export const fetchAllUsers = createAsyncThunk(
 
 export const updateUser = createAsyncThunk(
   'admin/updateUser',
-  async ({ userId, updates }, { rejectWithValue }) => {
+  async ({ id, updates }, { rejectWithValue }) => {
     try {
-      if (!userId) {
+      if (!id) {
         throw new Error('User ID is required')
       }
       
@@ -55,20 +55,22 @@ export const updateUser = createAsyncThunk(
         updated_at: new Date().toISOString()
       }
       
+      // Use maybeSingle() instead of single() to handle cases where no rows are returned
       const { data, error } = await supabase
         .from('profiles')
         .update(updateData)
-        .eq('id', userId)
+        .eq('id', id)
         .select()
-        .single()
+        .maybeSingle()
       
       if (error) {
         console.error('Update user error:', error)
         throw error
       }
       
+      // If no data is returned, it means the user wasn't found or couldn't be updated
       if (!data) {
-        throw new Error('User not found or could not be updated')
+        throw new Error('User not found or could not be updated. Please check permissions.')
       }
       
       return data
@@ -87,29 +89,53 @@ export const deleteUser = createAsyncThunk(
         throw new Error('User ID is required')
       }
       
-      // First delete the user's profile
-      const { error: profileError } = await supabase
+      const { error } = await supabase
         .from('profiles')
         .delete()
         .eq('id', userId)
       
-      if (profileError) {
-        console.error('Delete profile error:', profileError)
-        throw profileError
-      }
-      
-      // Then delete from auth.users (this requires service role)
-      const { error: authError } = await supabase.auth.admin.deleteUser(userId)
-      
-      if (authError) {
-        console.error('Delete auth user error:', authError)
-        // Don't throw here as profile is already deleted
+      if (error) {
+        console.error('Delete user error:', error)
+        throw error
       }
       
       return userId
     } catch (error) {
       console.error('Error in deleteUser:', error)
       return rejectWithValue(error.message || 'Failed to delete user')
+    }
+  }
+)
+
+export const createUser = createAsyncThunk(
+  'admin/createUser',
+  async (userData, { rejectWithValue }) => {
+    try {
+      const insertData = {
+        ...userData,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }
+      
+      const { data, error } = await supabase
+        .from('profiles')
+        .insert([insertData])
+        .select()
+        .maybeSingle()
+      
+      if (error) {
+        console.error('Create user error:', error)
+        throw error
+      }
+      
+      if (!data) {
+        throw new Error('User could not be created')
+      }
+      
+      return data
+    } catch (error) {
+      console.error('Error in createUser:', error)
+      return rejectWithValue(error.message || 'Failed to create user')
     }
   }
 )
@@ -247,179 +273,69 @@ export const fetchAnalytics = createAsyncThunk(
   'admin/fetchAnalytics',
   async (_, { rejectWithValue }) => {
     try {
-      console.log('Fetching analytics data...')
+      // Fetch total counts with proper error handling
+      const [usersResult, coursesResult, enrollmentsResult] = await Promise.allSettled([
+        supabase.from('profiles').select('*', { count: 'exact', head: true }),
+        supabase.from('courses').select('*', { count: 'exact', head: true }),
+        supabase.from('enrollments').select('*', { count: 'exact', head: true }),
+      ])
       
-      // Fetch all counts in parallel with better error handling
-      const [usersResult, coursesResult, enrollmentsResult, recentActivityResult] = await Promise.allSettled([
-        // Get total users count
-        supabase
-          .from('profiles')
-          .select('id', { count: 'exact', head: true }),
-        
-        // Get total courses count
-        supabase
-          .from('courses')
-          .select('id', { count: 'exact', head: true }),
-        
-        // Get total enrollments count
-        supabase
-          .from('enrollments')
-          .select('id', { count: 'exact', head: true }),
-        
-        // Get recent activity
-        supabase
+      // Extract counts with fallbacks
+      const usersCount = usersResult.status === 'fulfilled' ? usersResult.value.count : 0
+      const coursesCount = coursesResult.status === 'fulfilled' ? coursesResult.value.count : 0
+      const enrollmentsCount = enrollmentsResult.status === 'fulfilled' ? enrollmentsResult.value.count : 0
+      
+      // Fetch recent activity with error handling
+      let recentActivity = []
+      try {
+        const { data: activityData, error: activityError } = await supabase
           .from('enrollments')
           .select(`
-            id,
-            enrolled_at,
-            user:profiles!enrollments_user_id_fkey(
-              first_name,
-              last_name,
-              email
-            ),
-            course:courses!enrollments_course_id_fkey(
-              title,
-              slug
-            )
+            *,
+            user:profiles(first_name, last_name),
+            course:courses(title)
           `)
           .order('enrolled_at', { ascending: false })
           .limit(10)
-      ])
-      
-      // Extract counts with detailed logging
-      let totalUsers = 0
-      let totalCourses = 0
-      let totalEnrollments = 0
-      let recentActivity = []
-      
-      if (usersResult.status === 'fulfilled') {
-        totalUsers = usersResult.value.count || 0
-        console.log('Total users:', totalUsers)
-      } else {
-        console.error('Failed to fetch users count:', usersResult.reason)
+        
+        if (activityError) {
+          console.error('Recent activity fetch error:', activityError)
+        } else {
+          recentActivity = activityData || []
+        }
+      } catch (error) {
+        console.error('Error fetching recent activity:', error)
       }
       
-      if (coursesResult.status === 'fulfilled') {
-        totalCourses = coursesResult.value.count || 0
-        console.log('Total courses:', totalCourses)
-      } else {
-        console.error('Failed to fetch courses count:', coursesResult.reason)
-      }
-      
-      if (enrollmentsResult.status === 'fulfilled') {
-        totalEnrollments = enrollmentsResult.value.count || 0
-        console.log('Total enrollments:', totalEnrollments)
-      } else {
-        console.error('Failed to fetch enrollments count:', enrollmentsResult.reason)
-      }
-      
-      if (recentActivityResult.status === 'fulfilled') {
-        recentActivity = recentActivityResult.value.data || []
-        console.log('Recent activity count:', recentActivity.length)
-      } else {
-        console.error('Failed to fetch recent activity:', recentActivityResult.reason)
-      }
-      
-      // Calculate revenue from courses
+      // Calculate revenue with error handling
       let totalRevenue = 0
       try {
-        const { data: coursesData, error: coursesError } = await supabase
+        const { data: courses, error: coursesError } = await supabase
           .from('courses')
           .select('price')
         
         if (coursesError) {
           console.error('Revenue calculation error:', coursesError)
         } else {
-          totalRevenue = (coursesData || []).reduce((sum, course) => {
+          totalRevenue = (courses || []).reduce((sum, course) => {
             const price = parseFloat(course.price) || 0
             return sum + price
           }, 0)
-          console.log('Total revenue calculated:', totalRevenue)
         }
       } catch (error) {
         console.error('Error calculating revenue:', error)
       }
       
-      const analyticsData = {
-        totalUsers,
-        totalCourses,
-        totalEnrollments,
+      return {
+        totalUsers: usersCount || 0,
+        totalCourses: coursesCount || 0,
+        totalEnrollments: enrollmentsCount || 0,
         totalRevenue: totalRevenue.toFixed(2),
         recentActivity,
       }
-      
-      console.log('Final analytics data:', analyticsData)
-      return analyticsData
-      
     } catch (error) {
       console.error('Error in fetchAnalytics:', error)
       return rejectWithValue(error.message || 'Failed to fetch analytics')
-    }
-  }
-)
-
-export const fetchDetailedAnalytics = createAsyncThunk(
-  'admin/fetchDetailedAnalytics',
-  async (_, { rejectWithValue }) => {
-    try {
-      // Fetch enrollment trends (last 30 days)
-      const thirtyDaysAgo = new Date()
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-      
-      const { data: enrollmentTrends, error: trendsError } = await supabase
-        .from('enrollments')
-        .select('enrolled_at')
-        .gte('enrolled_at', thirtyDaysAgo.toISOString())
-        .order('enrolled_at', { ascending: true })
-      
-      if (trendsError) throw trendsError
-      
-      // Fetch course popularity
-      const { data: coursePopularity, error: popularityError } = await supabase
-        .from('courses')
-        .select(`
-          id,
-          title,
-          enrollments:enrollments(count)
-        `)
-        .order('created_at', { ascending: false })
-        .limit(10)
-      
-      if (popularityError) throw popularityError
-      
-      // Fetch user role distribution
-      const { data: roleDistribution, error: roleError } = await supabase
-        .from('profiles')
-        .select('role')
-      
-      if (roleError) throw roleError
-      
-      // Process enrollment trends by day
-      const trendsByDay = {}
-      enrollmentTrends?.forEach(enrollment => {
-        const date = new Date(enrollment.enrolled_at).toDateString()
-        trendsByDay[date] = (trendsByDay[date] || 0) + 1
-      })
-      
-      const enrollmentChartData = Object.entries(trendsByDay).map(([date, count]) => ({
-        date: new Date(date).toLocaleDateString(),
-        enrollments: count
-      }))
-      
-      // Process role distribution
-      const roleStats = roleDistribution?.reduce((acc, user) => {
-        acc[user.role] = (acc[user.role] || 0) + 1
-        return acc
-      }, {})
-      
-      return {
-        enrollmentTrends: enrollmentChartData,
-        coursePopularity: coursePopularity || [],
-        roleDistribution: roleStats || {},
-      }
-    } catch (error) {
-      console.error('Error in fetchDetailedAnalytics:', error)
-      return rejectWithValue(error.message || 'Failed to fetch detailed analytics')
     }
   }
 )
@@ -437,10 +353,6 @@ const adminSlice = createSlice({
     clearError: (state) => {
       state.error = null
     },
-    // Add action to refresh analytics
-    refreshAnalytics: (state) => {
-      state.loading = true
-    },
   },
   extraReducers: (builder) => {
     builder
@@ -452,8 +364,6 @@ const adminSlice = createSlice({
       .addCase(fetchAllUsers.fulfilled, (state, action) => {
         state.loading = false
         state.users = action.payload
-        // Update analytics with real user count
-        state.analytics.totalUsers = action.payload.length
       })
       .addCase(fetchAllUsers.rejected, (state, action) => {
         state.loading = false
@@ -484,10 +394,21 @@ const adminSlice = createSlice({
       .addCase(deleteUser.fulfilled, (state, action) => {
         state.loading = false
         state.users = state.users.filter(user => user.id !== action.payload)
-        // Update analytics
-        state.analytics.totalUsers = state.users.length
       })
       .addCase(deleteUser.rejected, (state, action) => {
+        state.loading = false
+        state.error = action.payload
+      })
+      // Create User
+      .addCase(createUser.pending, (state) => {
+        state.loading = true
+        state.error = null
+      })
+      .addCase(createUser.fulfilled, (state, action) => {
+        state.loading = false
+        state.users.unshift(action.payload)
+      })
+      .addCase(createUser.rejected, (state, action) => {
         state.loading = false
         state.error = action.payload
       })
@@ -499,8 +420,6 @@ const adminSlice = createSlice({
       .addCase(fetchAllCourses.fulfilled, (state, action) => {
         state.loading = false
         state.courses = action.payload
-        // Update analytics with real course count
-        state.analytics.totalCourses = action.payload.length
       })
       .addCase(fetchAllCourses.rejected, (state, action) => {
         state.loading = false
@@ -515,8 +434,6 @@ const adminSlice = createSlice({
       .addCase(createCourse.fulfilled, (state, action) => {
         state.loading = false
         state.courses.unshift(action.payload)
-        // Update analytics
-        state.analytics.totalCourses = state.courses.length
       })
       .addCase(createCourse.rejected, (state, action) => {
         state.loading = false
@@ -546,8 +463,6 @@ const adminSlice = createSlice({
       .addCase(deleteCourse.fulfilled, (state, action) => {
         state.loading = false
         state.courses = state.courses.filter(course => course.id !== action.payload)
-        // Update analytics
-        state.analytics.totalCourses = state.courses.length
       })
       .addCase(deleteCourse.rejected, (state, action) => {
         state.loading = false
@@ -561,29 +476,14 @@ const adminSlice = createSlice({
       .addCase(fetchAnalytics.fulfilled, (state, action) => {
         state.loading = false
         state.analytics = action.payload
-        console.log('Analytics updated in state:', action.payload)
       })
       .addCase(fetchAnalytics.rejected, (state, action) => {
         state.loading = false
         state.error = action.payload
-        console.error('Analytics fetch failed:', action.payload)
         // Keep existing analytics data on error
-      })
-      // Fetch Detailed Analytics
-      .addCase(fetchDetailedAnalytics.pending, (state) => {
-        state.loading = true
-        state.error = null
-      })
-      .addCase(fetchDetailedAnalytics.fulfilled, (state, action) => {
-        state.loading = false
-        state.analytics = { ...state.analytics, ...action.payload }
-      })
-      .addCase(fetchDetailedAnalytics.rejected, (state, action) => {
-        state.loading = false
-        state.error = action.payload
       })
   },
 })
 
-export const { setSelectedCourse, setSelectedUser, clearError, refreshAnalytics } = adminSlice.actions
+export const { setSelectedCourse, setSelectedUser, clearError } = adminSlice.actions
 export default adminSlice.reducer
