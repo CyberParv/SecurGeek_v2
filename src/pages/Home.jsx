@@ -57,7 +57,7 @@ const Hero = () => {
                 <div className="text-sm text-gray-600 dark:text-gray-300">Audio Lessons</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-primary-600 dark:text-primary-400"><10min</div>
+                <div className="text-2xl font-bold text-primary-600 dark:text-primary-400">&lt;10min</div>
                 <div className="text-sm text-gray-600 dark:text-gray-300">Per Lesson</div>
               </div>
               <div className="text-center">
