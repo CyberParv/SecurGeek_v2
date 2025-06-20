@@ -20,13 +20,301 @@ import {
   Award,
   Play,
   Users,
-  BarChart3
+  BarChart3,
+  ChevronDown,
+  ChevronRight
 } from 'lucide-react'
 import { useFormik } from 'formik'
 import * as Yup from 'yup'
 import { supabase } from '../../lib/supabase'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import toast from 'react-hot-toast'
+
+const SectionModal = ({ isOpen, onClose, courseId, section, onSave }) => {
+  const [loading, setLoading] = useState(false)
+
+  const sectionSchema = Yup.object({
+    title: Yup.string().required('Title is required'),
+    description: Yup.string(),
+  })
+
+  const formik = useFormik({
+    initialValues: {
+      title: section?.title || '',
+      description: section?.description || '',
+    },
+    validationSchema: sectionSchema,
+    enableReinitialize: true,
+    onSubmit: async (values) => {
+      setLoading(true)
+      try {
+        const sectionData = {
+          ...values,
+          course_id: courseId,
+          order_index: section?.order_index || 0,
+        }
+
+        await onSave(sectionData)
+        onClose()
+        formik.resetForm()
+      } catch (error) {
+        toast.error(error.message || 'Failed to save section')
+      } finally {
+        setLoading(false)
+      }
+    },
+  })
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black bg-opacity-50"
+            onClick={onClose}
+          />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md mx-4 p-6"
+          >
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                {section ? 'Edit Section' : 'Create New Section'}
+              </h2>
+              <button
+                onClick={onClose}
+                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              >
+                <X className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+              </button>
+            </div>
+
+            <form onSubmit={formik.handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Section Title
+                </label>
+                <input
+                  type="text"
+                  {...formik.getFieldProps('title')}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  placeholder="Enter section title"
+                />
+                {formik.touched.title && formik.errors.title && (
+                  <p className="mt-1 text-sm text-red-600">{formik.errors.title}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Description (Optional)
+                </label>
+                <textarea
+                  {...formik.getFieldProps('description')}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  placeholder="Brief description of the section"
+                />
+              </div>
+
+              <div className="flex justify-end space-x-3 pt-4">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-4 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="bg-gradient-to-r from-primary-500 to-secondary-500 text-white px-6 py-2 rounded-lg hover:from-primary-600 hover:to-secondary-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                >
+                  {loading && <LoadingSpinner size="sm" />}
+                  <Save className="h-4 w-4" />
+                  <span>{section ? 'Update Section' : 'Create Section'}</span>
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+  )
+}
+
+const LessonModal = ({ isOpen, onClose, sectionId, lesson, onSave }) => {
+  const [loading, setLoading] = useState(false)
+
+  const lessonSchema = Yup.object({
+    title: Yup.string().required('Title is required'),
+    description: Yup.string(),
+    content: Yup.string(),
+    video_url: Yup.string().url('Must be a valid URL'),
+    duration_minutes: Yup.number().min(1, 'Duration must be at least 1 minute'),
+  })
+
+  const formik = useFormik({
+    initialValues: {
+      title: lesson?.title || '',
+      description: lesson?.description || '',
+      content: lesson?.content || '',
+      video_url: lesson?.video_url || '',
+      duration_minutes: lesson?.duration_minutes || 10,
+    },
+    validationSchema: lessonSchema,
+    enableReinitialize: true,
+    onSubmit: async (values) => {
+      setLoading(true)
+      try {
+        const lessonData = {
+          ...values,
+          section_id: sectionId,
+          order_index: lesson?.order_index || 0,
+        }
+
+        await onSave(lessonData)
+        onClose()
+        formik.resetForm()
+      } catch (error) {
+        toast.error(error.message || 'Failed to save lesson')
+      } finally {
+        setLoading(false)
+      }
+    },
+  })
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black bg-opacity-50"
+            onClick={onClose}
+          />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl mx-4 p-6 max-h-[90vh] overflow-y-auto"
+          >
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                {lesson ? 'Edit Lesson' : 'Create New Lesson'}
+              </h2>
+              <button
+                onClick={onClose}
+                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              >
+                <X className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+              </button>
+            </div>
+
+            <form onSubmit={formik.handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Lesson Title
+                </label>
+                <input
+                  type="text"
+                  {...formik.getFieldProps('title')}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  placeholder="Enter lesson title"
+                />
+                {formik.touched.title && formik.errors.title && (
+                  <p className="mt-1 text-sm text-red-600">{formik.errors.title}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Description
+                </label>
+                <textarea
+                  {...formik.getFieldProps('description')}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  placeholder="Brief description of the lesson"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Video URL
+                  </label>
+                  <input
+                    type="url"
+                    {...formik.getFieldProps('video_url')}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                    placeholder="https://youtube.com/watch?v=..."
+                  />
+                  {formik.touched.video_url && formik.errors.video_url && (
+                    <p className="mt-1 text-sm text-red-600">{formik.errors.video_url}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Duration (minutes)
+                  </label>
+                  <input
+                    type="number"
+                    {...formik.getFieldProps('duration_minutes')}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                    placeholder="10"
+                  />
+                  {formik.touched.duration_minutes && formik.errors.duration_minutes && (
+                    <p className="mt-1 text-sm text-red-600">{formik.errors.duration_minutes}</p>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Lesson Content
+                </label>
+                <textarea
+                  {...formik.getFieldProps('content')}
+                  rows={6}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  placeholder="Detailed lesson content, notes, and materials..."
+                />
+              </div>
+
+              <div className="flex justify-end space-x-3 pt-4">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-4 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="bg-gradient-to-r from-primary-500 to-secondary-500 text-white px-6 py-2 rounded-lg hover:from-primary-600 hover:to-secondary-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                >
+                  {loading && <LoadingSpinner size="sm" />}
+                  <Save className="h-4 w-4" />
+                  <span>{lesson ? 'Update Lesson' : 'Create Lesson'}</span>
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+  )
+}
 
 const AssessmentModal = ({ isOpen, onClose, courseId, assessment, onSave }) => {
   const [loading, setLoading] = useState(false)
@@ -59,6 +347,7 @@ const AssessmentModal = ({ isOpen, onClose, courseId, assessment, onSave }) => {
           ...values,
           course_id: courseId,
           time_limit_minutes: values.time_limit_minutes || null,
+          order_index: assessment?.order_index || 0,
         }
 
         await onSave(assessmentData)
@@ -264,8 +553,14 @@ const CourseEditor = () => {
   const [assessments, setAssessments] = useState([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [showSectionModal, setShowSectionModal] = useState(false)
+  const [showLessonModal, setShowLessonModal] = useState(false)
   const [showAssessmentModal, setShowAssessmentModal] = useState(false)
+  const [editingSection, setEditingSection] = useState(null)
+  const [editingLesson, setEditingLesson] = useState(null)
   const [editingAssessment, setEditingAssessment] = useState(null)
+  const [selectedSectionId, setSelectedSectionId] = useState(null)
+  const [collapsedSections, setCollapsedSections] = useState({})
 
   useEffect(() => {
     if (courseId) {
@@ -311,11 +606,114 @@ const CourseEditor = () => {
       setCourse(courseData)
       setSections(sectionsData || [])
       setAssessments(assessmentsData || [])
+
+      // Initialize collapsed state
+      const initialCollapsed = {}
+      sectionsData?.forEach(section => {
+        initialCollapsed[section.id] = false
+      })
+      setCollapsedSections(initialCollapsed)
     } catch (error) {
       console.error('Error fetching course data:', error)
       toast.error('Failed to load course data')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleSaveSection = async (sectionData) => {
+    setSaving(true)
+    try {
+      if (editingSection) {
+        // Update existing section
+        const { error } = await supabase
+          .from('course_sections')
+          .update(sectionData)
+          .eq('id', editingSection.id)
+
+        if (error) throw error
+
+        setSections(prev => prev.map(s => 
+          s.id === editingSection.id ? { ...s, ...sectionData } : s
+        ))
+        toast.success('Section updated successfully!')
+      } else {
+        // Create new section
+        const { data, error } = await supabase
+          .from('course_sections')
+          .insert({
+            ...sectionData,
+            order_index: sections.length
+          })
+          .select()
+          .single()
+
+        if (error) throw error
+
+        setSections(prev => [...prev, { ...data, lessons: [] }])
+        toast.success('Section created successfully!')
+      }
+
+      setShowSectionModal(false)
+      setEditingSection(null)
+    } catch (error) {
+      console.error('Error saving section:', error)
+      toast.error('Failed to save section')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleSaveLesson = async (lessonData) => {
+    setSaving(true)
+    try {
+      if (editingLesson) {
+        // Update existing lesson
+        const { error } = await supabase
+          .from('lessons')
+          .update(lessonData)
+          .eq('id', editingLesson.id)
+
+        if (error) throw error
+
+        setSections(prev => prev.map(section => ({
+          ...section,
+          lessons: section.lessons?.map(lesson =>
+            lesson.id === editingLesson.id ? { ...lesson, ...lessonData } : lesson
+          ) || []
+        })))
+        toast.success('Lesson updated successfully!')
+      } else {
+        // Create new lesson
+        const sectionLessons = sections.find(s => s.id === selectedSectionId)?.lessons || []
+        const { data, error } = await supabase
+          .from('lessons')
+          .insert({
+            ...lessonData,
+            course_id: courseId,
+            order_index: sectionLessons.length
+          })
+          .select()
+          .single()
+
+        if (error) throw error
+
+        setSections(prev => prev.map(section =>
+          section.id === selectedSectionId
+            ? { ...section, lessons: [...(section.lessons || []), data] }
+            : section
+        ))
+        toast.success('Lesson created successfully!')
+      }
+
+      setShowLessonModal(false)
+      setEditingLesson(null)
+      setSelectedSectionId(null)
+    } catch (error) {
+      console.error('Error saving lesson:', error)
+      toast.error('Failed to save lesson')
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -362,6 +760,47 @@ const CourseEditor = () => {
     }
   }
 
+  const handleDeleteSection = async (sectionId) => {
+    if (!window.confirm('Are you sure you want to delete this section? This will also delete all lessons in this section.')) return
+
+    try {
+      const { error } = await supabase
+        .from('course_sections')
+        .delete()
+        .eq('id', sectionId)
+
+      if (error) throw error
+
+      setSections(prev => prev.filter(s => s.id !== sectionId))
+      toast.success('Section deleted successfully!')
+    } catch (error) {
+      console.error('Error deleting section:', error)
+      toast.error('Failed to delete section')
+    }
+  }
+
+  const handleDeleteLesson = async (lessonId) => {
+    if (!window.confirm('Are you sure you want to delete this lesson?')) return
+
+    try {
+      const { error } = await supabase
+        .from('lessons')
+        .delete()
+        .eq('id', lessonId)
+
+      if (error) throw error
+
+      setSections(prev => prev.map(section => ({
+        ...section,
+        lessons: section.lessons?.filter(lesson => lesson.id !== lessonId) || []
+      })))
+      toast.success('Lesson deleted successfully!')
+    } catch (error) {
+      console.error('Error deleting lesson:', error)
+      toast.error('Failed to delete lesson')
+    }
+  }
+
   const handleDeleteAssessment = async (assessmentId) => {
     if (!window.confirm('Are you sure you want to delete this assessment? This will also delete all questions.')) return
 
@@ -381,9 +820,32 @@ const CourseEditor = () => {
     }
   }
 
+  const handleEditSection = (section) => {
+    setEditingSection(section)
+    setShowSectionModal(true)
+  }
+
+  const handleEditLesson = (lesson) => {
+    setEditingLesson(lesson)
+    setShowLessonModal(true)
+  }
+
   const handleEditAssessment = (assessment) => {
     setEditingAssessment(assessment)
     setShowAssessmentModal(true)
+  }
+
+  const handleAddLesson = (sectionId) => {
+    setSelectedSectionId(sectionId)
+    setEditingLesson(null)
+    setShowLessonModal(true)
+  }
+
+  const toggleSection = (sectionId) => {
+    setCollapsedSections(prev => ({
+      ...prev,
+      [sectionId]: !prev[sectionId]
+    }))
   }
 
   if (loading) {
@@ -486,15 +948,18 @@ const CourseEditor = () => {
               </div>
             </div>
 
-            {/* Course Content */}
+            {/* Course Content Management */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               {/* Sections & Lessons */}
               <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
                 <div className="flex items-center justify-between mb-6">
                   <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                    Course Content
+                    Course Sections & Lessons
                   </h2>
-                  <button className="bg-gradient-to-r from-primary-500 to-secondary-500 text-white px-4 py-2 rounded-lg hover:from-primary-600 hover:to-secondary-600 transition-colors flex items-center space-x-2">
+                  <button 
+                    onClick={() => setShowSectionModal(true)}
+                    className="bg-gradient-to-r from-primary-500 to-secondary-500 text-white px-4 py-2 rounded-lg hover:from-primary-600 hover:to-secondary-600 transition-colors flex items-center space-x-2"
+                  >
                     <Plus className="h-4 w-4" />
                     <span>Add Section</span>
                   </button>
@@ -504,56 +969,114 @@ const CourseEditor = () => {
                   {sections.length === 0 ? (
                     <div className="text-center py-8">
                       <BookOpen className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-500 dark:text-gray-400">
+                      <p className="text-gray-500 dark:text-gray-400 mb-4">
                         No sections created yet
                       </p>
+                      <button 
+                        onClick={() => setShowSectionModal(true)}
+                        className="bg-gradient-to-r from-primary-500 to-secondary-500 text-white px-4 py-2 rounded-lg hover:from-primary-600 hover:to-secondary-600 transition-colors"
+                      >
+                        Create First Section
+                      </button>
                     </div>
                   ) : (
                     sections.map((section, index) => (
-                      <div key={section.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                        <div className="flex items-center justify-between mb-3">
-                          <h3 className="font-medium text-gray-900 dark:text-white">
-                            {section.title}
-                          </h3>
+                      <div key={section.id} className="border border-gray-200 dark:border-gray-700 rounded-lg">
+                        <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-t-lg">
+                          <div className="flex items-center space-x-3">
+                            <button
+                              onClick={() => toggleSection(section.id)}
+                              className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
+                            >
+                              {collapsedSections[section.id] ? (
+                                <ChevronRight className="h-4 w-4 text-gray-500" />
+                              ) : (
+                                <ChevronDown className="h-4 w-4 text-gray-500" />
+                              )}
+                            </button>
+                            <h3 className="font-medium text-gray-900 dark:text-white">
+                              {section.title}
+                            </h3>
+                            <span className="text-sm text-gray-500 dark:text-gray-400">
+                              ({section.lessons?.length || 0} lessons)
+                            </span>
+                          </div>
                           <div className="flex items-center space-x-2">
-                            <button className="p-1 text-gray-400 hover:text-gray-600">
+                            <button 
+                              onClick={() => handleAddLesson(section.id)}
+                              className="p-1 text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-900/20 rounded"
+                              title="Add Lesson"
+                            >
+                              <Plus className="h-4 w-4" />
+                            </button>
+                            <button 
+                              onClick={() => handleEditSection(section)}
+                              className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
+                              title="Edit Section"
+                            >
                               <Edit className="h-4 w-4" />
                             </button>
-                            <button className="p-1 text-red-400 hover:text-red-600">
+                            <button 
+                              onClick={() => handleDeleteSection(section.id)}
+                              className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
+                              title="Delete Section"
+                            >
                               <Trash2 className="h-4 w-4" />
                             </button>
                           </div>
                         </div>
                         
-                        <div className="space-y-2">
-                          {section.lessons?.map((lesson, lessonIndex) => (
-                            <div key={lesson.id} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded">
-                              <div className="flex items-center space-x-2">
-                                <Play className="h-4 w-4 text-gray-400" />
-                                <span className="text-sm text-gray-700 dark:text-gray-300">
-                                  {lesson.title}
-                                </span>
+                        {!collapsedSections[section.id] && (
+                          <div className="p-4 space-y-2">
+                            {section.lessons?.map((lesson, lessonIndex) => (
+                              <div key={lesson.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                                <div className="flex items-center space-x-3">
+                                  <Play className="h-4 w-4 text-blue-500" />
+                                  <div>
+                                    <span className="text-sm font-medium text-gray-900 dark:text-white">
+                                      {lesson.title}
+                                    </span>
+                                    <div className="flex items-center space-x-2 text-xs text-gray-500 dark:text-gray-400">
+                                      <span>{lesson.duration_minutes || 10} min</span>
+                                      {lesson.video_url && (
+                                        <span className="text-blue-600 dark:text-blue-400">Video</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="flex items-center space-x-1">
+                                  <button 
+                                    onClick={() => handleEditLesson(lesson)}
+                                    className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
+                                    title="Edit Lesson"
+                                  >
+                                    <Edit className="h-3 w-3" />
+                                  </button>
+                                  <button 
+                                    onClick={() => handleDeleteLesson(lesson.id)}
+                                    className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
+                                    title="Delete Lesson"
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </button>
+                                </div>
                               </div>
-                              <div className="flex items-center space-x-1">
-                                <button className="p-1 text-gray-400 hover:text-gray-600">
-                                  <Edit className="h-3 w-3" />
-                                </button>
-                                <button className="p-1 text-red-400 hover:text-red-600">
-                                  <Trash2 className="h-3 w-3" />
+                            )) || (
+                              <div className="text-center py-4">
+                                <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+                                  No lessons in this section
+                                </p>
+                                <button 
+                                  onClick={() => handleAddLesson(section.id)}
+                                  className="text-sm text-primary-600 hover:text-primary-700 flex items-center space-x-1 mx-auto"
+                                >
+                                  <Plus className="h-3 w-3" />
+                                  <span>Add First Lesson</span>
                                 </button>
                               </div>
-                            </div>
-                          )) || (
-                            <p className="text-sm text-gray-500 dark:text-gray-400 italic">
-                              No lessons in this section
-                            </p>
-                          )}
-                        </div>
-                        
-                        <button className="mt-3 text-sm text-primary-600 hover:text-primary-700 flex items-center space-x-1">
-                          <Plus className="h-3 w-3" />
-                          <span>Add Lesson</span>
-                        </button>
+                            )}
+                          </div>
+                        )}
                       </div>
                     ))
                   )}
@@ -564,7 +1087,7 @@ const CourseEditor = () => {
               <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
                 <div className="flex items-center justify-between mb-6">
                   <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                    Assessments
+                    Course Assessments
                   </h2>
                   <button 
                     onClick={() => setShowAssessmentModal(true)}
@@ -579,9 +1102,15 @@ const CourseEditor = () => {
                   {assessments.length === 0 ? (
                     <div className="text-center py-8">
                       <Award className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-500 dark:text-gray-400">
+                      <p className="text-gray-500 dark:text-gray-400 mb-4">
                         No assessments created yet
                       </p>
+                      <button 
+                        onClick={() => setShowAssessmentModal(true)}
+                        className="bg-gradient-to-r from-primary-500 to-secondary-500 text-white px-4 py-2 rounded-lg hover:from-primary-600 hover:to-secondary-600 transition-colors"
+                      >
+                        Create First Assessment
+                      </button>
                     </div>
                   ) : (
                     assessments.map((assessment) => (
@@ -653,7 +1182,30 @@ const CourseEditor = () => {
         </div>
       </div>
 
-      {/* Assessment Modal */}
+      {/* Modals */}
+      <SectionModal
+        isOpen={showSectionModal}
+        onClose={() => {
+          setShowSectionModal(false)
+          setEditingSection(null)
+        }}
+        courseId={courseId}
+        section={editingSection}
+        onSave={handleSaveSection}
+      />
+
+      <LessonModal
+        isOpen={showLessonModal}
+        onClose={() => {
+          setShowLessonModal(false)
+          setEditingLesson(null)
+          setSelectedSectionId(null)
+        }}
+        sectionId={selectedSectionId}
+        lesson={editingLesson}
+        onSave={handleSaveLesson}
+      />
+
       <AssessmentModal
         isOpen={showAssessmentModal}
         onClose={() => {

@@ -352,31 +352,6 @@ const FeaturedCourses = () => {
 
   const topCourses = getTopCourses()
 
-  // Enhanced static fallback programs
-  const staticPrograms = [
-    {
-      title: 'Cybersecurity Basics & Awareness',
-      description: 'Master the fundamentals of cybersecurity with interactive training. Learn to identify threats, implement defensive strategies, and protect digital assets.',
-      icon: Shield,
-      color: 'from-blue-500 to-blue-600',
-      gradient: 'from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20'
-    },
-    {
-      title: 'Social Engineering Defense',
-      description: 'Recognize and counter manipulation tactics used by hackers. Covers phishing, impersonation, and practical defense strategies.',
-      icon: Users,
-      color: 'from-purple-500 to-purple-600',
-      gradient: 'from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20'
-    },
-    {
-      title: 'Data Privacy Fundamentals',
-      description: 'Understand data privacy, regulatory requirements, best practices, and privacy controls.',
-      icon: Lock,
-      color: 'from-green-500 to-green-600',
-      gradient: 'from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20'
-    }
-  ]
-
   const handleCourseClick = (course) => {
     if (isAuthenticated) {
       if (course.id) {
@@ -441,9 +416,9 @@ const FeaturedCourses = () => {
         </motion.div>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-          {(topCourses.length > 0 ? topCourses : staticPrograms).map((course, index) => (
+          {topCourses.length > 0 ? topCourses.map((course, index) => (
             <motion.div
-              key={course.id || index}
+              key={course.id}
               className="group relative cursor-pointer"
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -452,24 +427,25 @@ const FeaturedCourses = () => {
               whileHover={{ y: -3 }}
               onClick={() => handleCourseClick(course)}
             >
-              <div className={`relative bg-gradient-to-br ${course.gradient || 'from-white to-gray-50 dark:from-gray-800 dark:to-gray-700'} rounded-2xl p-6 shadow-lg group-hover:shadow-xl transition-all duration-200 border border-gray-200 dark:border-gray-600 overflow-hidden`}>
+              <div className="relative bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg group-hover:shadow-xl transition-all duration-200 border border-gray-200 dark:border-gray-600 overflow-hidden">
                 {/* Animated border */}
                 <div className="absolute inset-0 bg-gradient-to-r from-primary-500 via-secondary-500 to-cyber-500 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                 <div className="absolute inset-[2px] bg-white dark:bg-gray-800 rounded-2xl"></div>
                 <div className="relative z-10">
-                  <div className={`inline-flex items-center justify-center w-12 h-12 bg-gradient-to-r ${course.color || 'from-primary-500 to-secondary-500'} rounded-xl mb-4 group-hover:scale-105 transition-transform duration-200 shadow-lg`}>
-                    {course.icon ? (
-                      <course.icon className="h-6 w-6 text-white" />
-                    ) : (
-                      <BookOpen className="h-6 w-6 text-white" />
-                    )}
+                  <div className="inline-flex items-center justify-center w-12 h-12 bg-gradient-to-r from-primary-500 to-secondary-500 rounded-xl mb-4 group-hover:scale-105 transition-transform duration-200 shadow-lg">
+                    <BookOpen className="h-6 w-6 text-white" />
                   </div>
                   <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors duration-200">
                     {course.title}
                   </h3>
-                  <p className="text-gray-600 dark:text-gray-300 mb-4 leading-relaxed text-sm">
+                  <p className="text-gray-600 dark:text-gray-300 mb-4 leading-relaxed text-sm line-clamp-3">
                     {course.description}
                   </p>
+                  <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400 mb-4">
+                    <span>{course.lessons?.[0]?.count || 0} lessons</span>
+                    <span>{course.enrollments?.[0]?.count || 0} students</span>
+                    <span>{course.level || 'Intermediate'}</span>
+                  </div>
                   <motion.div
                     whileHover={{ x: 3 }}
                     transition={{ type: "spring", stiffness: 400 }}
@@ -482,7 +458,68 @@ const FeaturedCourses = () => {
                 </div>
               </div>
             </motion.div>
-          ))}
+          )) : (
+            // Fallback to static courses if no real courses available
+            [
+              {
+                title: 'Cybersecurity Fundamentals',
+                description: 'Master the basics of cybersecurity with comprehensive training covering threat identification, risk assessment, and defensive strategies.',
+                icon: Shield,
+                color: 'from-blue-500 to-blue-600',
+                gradient: 'from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20'
+              },
+              {
+                title: 'Incident Response & Forensics',
+                description: 'Learn to effectively respond to security incidents, conduct digital forensics, and implement recovery procedures.',
+                icon: Users,
+                color: 'from-purple-500 to-purple-600',
+                gradient: 'from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20'
+              },
+              {
+                title: 'Network Security Essentials',
+                description: 'Secure your network infrastructure with proven techniques including firewalls, VPNs, and intrusion detection.',
+                icon: Lock,
+                color: 'from-green-500 to-green-600',
+                gradient: 'from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20'
+              }
+            ].map((course, index) => (
+              <motion.div
+                key={index}
+                className="group relative cursor-pointer"
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
+                viewport={{ once: true }}
+                whileHover={{ y: -3 }}
+                onClick={() => handleCourseClick(course)}
+              >
+                <div className={`relative bg-gradient-to-br ${course.gradient} rounded-2xl p-6 shadow-lg group-hover:shadow-xl transition-all duration-200 border border-gray-200 dark:border-gray-600 overflow-hidden`}>
+                  <div className="absolute inset-0 bg-gradient-to-r from-primary-500 via-secondary-500 to-cyber-500 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                  <div className="absolute inset-[2px] bg-white dark:bg-gray-800 rounded-2xl"></div>
+                  <div className="relative z-10">
+                    <div className={`inline-flex items-center justify-center w-12 h-12 bg-gradient-to-r ${course.color} rounded-xl mb-4 group-hover:scale-105 transition-transform duration-200 shadow-lg`}>
+                      <course.icon className="h-6 w-6 text-white" />
+                    </div>
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors duration-200">
+                      {course.title}
+                    </h3>
+                    <p className="text-gray-600 dark:text-gray-300 mb-4 leading-relaxed text-sm">
+                      {course.description}
+                    </p>
+                    <motion.div
+                      whileHover={{ x: 3 }}
+                      transition={{ type: "spring", stiffness: 400 }}
+                    >
+                      <div className="inline-flex items-center space-x-2 text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 font-semibold group-hover:text-primary-700 transition-colors duration-200">
+                        <span>{isAuthenticated ? 'View Details' : 'Login to Access'}</span>
+                        <ChevronRight className="h-4 w-4 group-hover:translate-x-1 transition-transform duration-200" />
+                      </div>
+                    </motion.div>
+                  </div>
+                </div>
+              </motion.div>
+            ))
+          )}
         </div>
         <motion.div 
           className="text-center"
