@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useSelector, useDispatch } from 'react-redux'
 import { motion } from 'framer-motion'
 import { Helmet } from 'react-helmet-async'
@@ -75,6 +75,7 @@ const FloatingElements = () => {
 const Hero = () => {
   const { isAuthenticated } = useSelector(state => state.auth)
   const dispatch = useDispatch()
+  const navigate = useNavigate()
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -102,7 +103,7 @@ const Hero = () => {
   const handleGetStarted = () => {
     if (isAuthenticated) {
       // Navigate to courses if authenticated
-      window.location.href = '/courses'
+      navigate('/courses')
     } else {
       // Open signup modal if not authenticated
       dispatch(openModal('signup'))
@@ -112,10 +113,10 @@ const Hero = () => {
   const handlePreviewLessons = () => {
     if (isAuthenticated) {
       // Navigate to courses if authenticated
-      window.location.href = '/courses'
+      navigate('/courses')
     } else {
       // Navigate to preview page if not authenticated
-      window.location.href = '/preview'
+      navigate('/preview')
     }
   }
 
@@ -330,6 +331,7 @@ const FeaturedCourses = () => {
   const { courses, loading } = useSelector(state => state.courses)
   const { isAuthenticated } = useSelector(state => state.auth)
   const dispatch = useDispatch()
+  const navigate = useNavigate()
 
   useEffect(() => {
     dispatch(fetchCourses())
@@ -377,7 +379,11 @@ const FeaturedCourses = () => {
 
   const handleCourseClick = (course) => {
     if (isAuthenticated) {
-      window.location.href = course.id ? `/courses/${course.id}` : '/courses'
+      if (course.id) {
+        navigate(`/courses/${course.id}`)
+      } else {
+        navigate('/courses')
+      }
     } else {
       dispatch(openModal('login'))
     }
@@ -385,7 +391,7 @@ const FeaturedCourses = () => {
 
   const handleViewAllCourses = () => {
     if (isAuthenticated) {
-      window.location.href = '/courses'
+      navigate('/courses')
     } else {
       dispatch(openModal('login'))
     }
@@ -619,10 +625,11 @@ const WhyChooseUs = () => {
 const CTA = () => {
   const { isAuthenticated } = useSelector(state => state.auth)
   const dispatch = useDispatch()
+  const navigate = useNavigate()
 
   const handleGetStarted = () => {
     if (isAuthenticated) {
-      window.location.href = '/courses'
+      navigate('/courses')
     } else {
       dispatch(openModal('signup'))
     }

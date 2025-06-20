@@ -195,14 +195,9 @@ const Courses = () => {
   const dispatch = useDispatch()
 
   useEffect(() => {
-    // Redirect to login if not authenticated
-    if (!isAuthenticated) {
-      dispatch(openModal('login'))
-      return
-    }
-    
+    // Always fetch courses, regardless of authentication status
     dispatch(fetchCourses())
-  }, [dispatch, isAuthenticated])
+  }, [dispatch])
 
   const handleFilterChange = (newFilters) => {
     dispatch(setFilters(newFilters))
@@ -222,44 +217,6 @@ const Courses = () => {
     
     return matchesSearch && matchesCategory && matchesLevel
   })
-
-  // Show login prompt if not authenticated
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-16">
-        <div className="container mx-auto px-4 text-center">
-          <div className="max-w-md mx-auto">
-            <div className="mb-8">
-              <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-r from-primary-500 to-secondary-500 rounded-full mb-4">
-                <Lock className="h-10 w-10 text-white" />
-              </div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
-                Login Required
-              </h1>
-              <p className="text-gray-600 dark:text-gray-300 mb-8">
-                Please log in to access our cybersecurity courses and start your learning journey.
-              </p>
-            </div>
-
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <button
-                onClick={() => dispatch(openModal('login'))}
-                className="inline-flex items-center justify-center space-x-2 bg-gradient-to-r from-primary-500 to-secondary-500 text-white px-6 py-3 rounded-lg hover:from-primary-600 hover:to-secondary-600 transition-colors"
-              >
-                <span>Sign In</span>
-              </button>
-              <button
-                onClick={() => dispatch(openModal('signup'))}
-                className="inline-flex items-center justify-center space-x-2 border-2 border-primary-500 text-primary-600 dark:text-primary-400 px-6 py-3 rounded-lg hover:bg-primary-500 hover:text-white transition-colors"
-              >
-                <span>Sign Up</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    )
-  }
 
   if (loading) {
     return (
@@ -290,6 +247,14 @@ const Courses = () => {
             <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
               Master the skills needed to protect organizations from cyber threats with our comprehensive training programs.
             </p>
+            {!isAuthenticated && (
+              <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg max-w-2xl mx-auto">
+                <p className="text-blue-800 dark:text-blue-200">
+                  <Lock className="h-4 w-4 inline mr-2" />
+                  Sign in to enroll in courses and track your progress
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Filters */}

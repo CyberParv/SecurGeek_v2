@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useSelector, useDispatch } from 'react-redux'
 import { Helmet } from 'react-helmet-async'
 import { 
@@ -14,30 +14,37 @@ import {
   Users,
   Star
 } from 'lucide-react'
-import { fetchCourseById } from '../store/slices/courseSlice'
+import { fetchCourses } from '../store/slices/courseSlice'
 import { openModal } from '../store/slices/uiSlice'
 import { supabase } from '../lib/supabase'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import VideoPlayer from '../components/VideoPlayer'
 
 const CoursePreview = () => {
-  const { id } = useParams()
   const navigate = useNavigate()
   const dispatch = useDispatch()
-  const { currentCourse, loading } = useSelector(state => state.courses)
+  const { courses, loading } = useSelector(state => state.courses)
   const { isAuthenticated } = useSelector(state => state.auth)
   const [activeTab, setActiveTab] = useState('overview')
   const [sections, setSections] = useState([])
   const [previewLesson, setPreviewLesson] = useState(null)
+  const [selectedCourse, setSelectedCourse] = useState(null)
 
   useEffect(() => {
-    if (id) {
-      dispatch(fetchCourseById(id))
-      fetchCourseSections()
-    }
-  }, [dispatch, id])
+    // Fetch courses to show preview
+    dispatch(fetchCourses())
+  }, [dispatch])
 
-  const fetchCourseSections = async () => {
+  useEffect(() => {
+    // Select the first available course for preview
+    if (courses && courses.length > 0 && !selectedCourse) {
+      const firstCourse = courses[0]
+      setSelectedCourse(firstCourse)
+      fetchCourseSections(firstCourse.id)
+    }
+  }, [courses, selectedCourse])
+
+  const fetchCourseSections = async (courseId) => {
     try {
       const { data: sectionsData, error } = await supabase
         .from('course_sections')
@@ -46,7 +53,7 @@ const CoursePreview = () => {
           lessons:lessons(*),
           assessments:assessments(*)
         `)
-        .eq('course_id', id)
+        .eq('course_id', courseId)
         .order('order_index')
       
       if (error) throw error
@@ -84,10 +91,15 @@ const CoursePreview = () => {
 
   const handleEnrollNow = () => {
     if (isAuthenticated) {
-      navigate(`/courses/${id}`)
+      navigate(`/courses/${selectedCourse.id}`)
     } else {
       dispatch(openModal('signup'))
     }
+  }
+
+  const handleCourseSelect = (course) => {
+    setSelectedCourse(course)
+    fetchCourseSections(course.id)
   }
 
   if (loading) {
@@ -102,13 +114,22 @@ const CoursePreview = () => {
     )
   }
 
-  if (!currentCourse) {
+  if (!selectedCourse) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-16">
         <div className="container mx-auto px-4 text-center">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-            Course Not Found
+            No Courses Available for Preview
           </h1>
+          <p className="text-gray-600 dark:text-gray-300 mb-8">
+            Please check back later for course previews.
+          </p>
+          <button
+            onClick={() => navigate('/')}
+            className="bg-gradient-to-r from-primary-500 to-secondary-500 text-white px-6 py-3 rounded-lg hover:from-primary-600 hover:to-secondary-600 transition-colors"
+          >
+            Back to Home
+          </button>
         </div>
       </div>
     )
@@ -117,7 +138,7 @@ const CoursePreview = () => {
   return (
     <>
       <Helmet>
-        <title>{currentCourse.title} - Preview - SecurGeek</title>
+        <title>{selectedCourse.title} - Preview - SecurGeek</title>
       </Helmet>
 
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -153,7 +174,7 @@ const CoursePreview = () => {
             <div className="p-6 bg-white dark:bg-gray-800">
               <div className="flex items-center justify-between mb-4">
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {previewLesson?.title || currentCourse.title}
+                  {previewLesson?.title || selectedCourse.title}
                 </h1>
                 <div className="bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-400 px-3 py-1 rounded-full text-sm font-medium">
                   Preview Mode
@@ -164,19 +185,48 @@ const CoursePreview = () => {
                 {previewLesson?.description || 'This is a preview of the course content. Sign up to access all lessons and features.'}
               </p>
 
+              {/* Course Selection */}
+              {courses.length > 1 && (
+                <div className="mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+                    Choose a Course to Preview
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {courses.slice(0, 3).map((course) => (
+                      <button
+                        key={course.id}
+                        onClick={() => handleCourseSelect(course)}
+                        className={`p-4 rounded-lg border-2 transition-colors text-left ${
+                          selectedCourse.id === course.id
+                            ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
+                            : 'border-gray-200 dark:border-gray-700 hover:border-primary-300'
+                        }`}
+                      >
+                        <h4 className="font-medium text-gray-900 dark:text-white mb-1">
+                          {course.title}
+                        </h4>
+                        <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">
+                          {course.description}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Course Stats */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                 <div className="text-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
                   <Clock className="h-6 w-6 text-primary-500 mx-auto mb-2" />
                   <div className="text-lg font-bold text-gray-900 dark:text-white">
-                    {currentCourse.duration || '10 hours'}
+                    {selectedCourse.duration || '10 hours'}
                   </div>
                   <div className="text-sm text-gray-600 dark:text-gray-300">Duration</div>
                 </div>
                 <div className="text-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
                   <Users className="h-6 w-6 text-secondary-500 mx-auto mb-2" />
                   <div className="text-lg font-bold text-gray-900 dark:text-white">
-                    {currentCourse.enrollments?.[0]?.count || 0}
+                    {selectedCourse.enrollments?.[0]?.count || 0}
                   </div>
                   <div className="text-sm text-gray-600 dark:text-gray-300">Students</div>
                 </div>
@@ -223,7 +273,7 @@ const CoursePreview = () => {
                 {activeTab === 'overview' && (
                   <div className="prose dark:prose-invert max-w-none">
                     <h3>About This Course</h3>
-                    <p>{currentCourse.long_description || currentCourse.description}</p>
+                    <p>{selectedCourse.long_description || selectedCourse.description}</p>
                     
                     <h3>What You'll Learn</h3>
                     <ul>
@@ -293,10 +343,10 @@ const CoursePreview = () => {
                 >
                   {isAuthenticated ? 'Enroll Now' : 'Sign Up to Enroll'}
                 </button>
-                {currentCourse.price && (
+                {selectedCourse.price && (
                   <div className="text-center mt-2">
                     <span className="text-2xl font-bold text-primary-600 dark:text-primary-400">
-                      ${currentCourse.price}
+                      ${selectedCourse.price}
                     </span>
                   </div>
                 )}
