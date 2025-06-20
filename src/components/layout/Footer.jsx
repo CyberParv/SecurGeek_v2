@@ -19,9 +19,9 @@ const Footer = () => {
             </p>
           </div>
 
-          {/* Training Programs */}
+          {/* Courses */}
           <div>
-            <h3 className="text-lg font-semibold mb-4">Training Programs</h3>
+            <h3 className="text-lg font-semibold mb-4">Courses</h3>
             <ul className="space-y-2">
               <li>
                 <Link to="/courses" className="text-gray-400 hover:text-white transition-colors">

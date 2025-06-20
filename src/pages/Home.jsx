@@ -57,7 +57,7 @@ const Hero = () => {
                 <div className="text-sm text-gray-600 dark:text-gray-300">Audio Lessons</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-primary-600 dark:text-primary-400">&lt;10min</div>
+                <div className="text-2xl font-bold text-primary-600 dark:text-primary-400"><10min</div>
                 <div className="text-sm text-gray-600 dark:text-gray-300">Per Lesson</div>
               </div>
               <div className="text-center">
@@ -146,67 +146,167 @@ const VideoLearningFeatures = () => {
   )
 }
 
-const TrainingPrograms = () => {
-  const programs = [
-    {
-      title: 'Cybersecurity Basics & Awareness',
-      description: 'Master the fundamentals of cybersecurity with interactive training. Learn to identify threats, implement defensive strategies, and protect digital assets.',
-      icon: Shield,
-      color: 'from-blue-500 to-blue-600'
-    },
-    {
-      title: 'Social Engineering Defense',
-      description: 'Recognize and counter manipulation tactics used by hackers. Covers phishing, impersonation, and practical defense strategies.',
-      icon: Users,
-      color: 'from-purple-500 to-purple-600'
-    },
-    {
-      title: 'Data Privacy Fundamentals',
-      description: 'Understand data privacy, regulatory requirements, best practices, and privacy controls.',
-      icon: Lock,
-      color: 'from-green-500 to-green-600'
-    }
-  ]
+const FeaturedCourses = () => {
+  const { courses, loading } = useSelector(state => state.courses)
+  const dispatch = useDispatch()
+
+  useEffect(() => {
+    dispatch(fetchCourses())
+  }, [dispatch])
+
+  // Get top 3 courses by enrollment count
+  const getTopCourses = () => {
+    if (!courses || courses.length === 0) return []
+    
+    // Sort courses by enrollment count (descending) and take top 3
+    const sortedCourses = [...courses].sort((a, b) => {
+      const aEnrollments = a.enrollments?.[0]?.count || 0
+      const bEnrollments = b.enrollments?.[0]?.count || 0
+      return bEnrollments - aEnrollments
+    })
+    
+    return sortedCourses.slice(0, 3)
+  }
+
+  const topCourses = getTopCourses()
+
+  if (loading) {
+    return (
+      <section className="py-16 bg-gray-50 dark:bg-gray-900">
+        <div className="container mx-auto px-4">
+          <div className="text-center">
+            <LoadingSpinner size="lg" />
+          </div>
+        </div>
+      </section>
+    )
+  }
 
   return (
     <section className="py-16 bg-gray-50 dark:bg-gray-900">
       <div className="container mx-auto px-4">
         <div className="text-center mb-12">
           <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
-            Training Programs
+            Popular Courses
           </h2>
           <p className="text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
-            Comprehensive cybersecurity training programs designed for SMEs and professionals.
+            Comprehensive cybersecurity courses designed for SMEs and professionals.
           </p>
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {programs.map((program, index) => (
-            <motion.div
-              key={index}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: index * 0.1 }}
-              className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow duration-300"
-            >
-              <div className={`inline-flex items-center justify-center w-12 h-12 bg-gradient-to-r ${program.color} rounded-lg mb-4`}>
-                <program.icon className="h-6 w-6 text-white" />
-              </div>
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-3">
-                {program.title}
-              </h3>
-              <p className="text-gray-600 dark:text-gray-300 mb-4">
-                {program.description}
-              </p>
-              <Link
-                to="/courses"
-                className="text-primary-600 hover:text-primary-700 font-medium flex items-center space-x-1"
+          {topCourses.length > 0 ? (
+            topCourses.map((course, index) => (
+              <motion.div
+                key={course.id}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: index * 0.1 }}
+                className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300"
               >
-                <span>View Details</span>
-                <ChevronRight className="h-4 w-4" />
-              </Link>
-            </motion.div>
-          ))}
+                <div className="aspect-video bg-gradient-to-r from-primary-500 to-secondary-500 flex items-center justify-center">
+                  <Play className="h-12 w-12 text-white" />
+                </div>
+                <div className="p-6">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-100 text-primary-800 dark:bg-primary-900 dark:text-primary-200">
+                      {course.level || 'Intermediate'}
+                    </span>
+                    <div className="flex items-center space-x-1">
+                      <Users className="h-4 w-4 text-gray-400" />
+                      <span className="text-sm text-gray-500 dark:text-gray-400">
+                        {course.enrollments?.[0]?.count || 0} enrolled
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-3">
+                    {course.title}
+                  </h3>
+                  <p className="text-gray-600 dark:text-gray-300 mb-4 line-clamp-3">
+                    {course.description}
+                  </p>
+                  
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center">
+                      {[...Array(5)].map((_, i) => (
+                        <Star key={i} className="h-4 w-4 text-yellow-400 fill-current" />
+                      ))}
+                    </div>
+                    <div className="flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400">
+                      <Clock className="h-4 w-4" />
+                      <span>{course.duration_hours || 10} hours</span>
+                    </div>
+                  </div>
+                  
+                  <Link
+                    to={`/courses/${course.id}`}
+                    className="w-full bg-gradient-to-r from-primary-500 to-secondary-500 text-white px-4 py-2 rounded-lg hover:from-primary-600 hover:to-secondary-600 transition-colors flex items-center justify-center space-x-2"
+                  >
+                    <span>View Details</span>
+                    <ChevronRight className="h-4 w-4" />
+                  </Link>
+                </div>
+              </motion.div>
+            ))
+          ) : (
+            // Fallback to static content if no courses available
+            [
+              {
+                title: 'Cybersecurity Basics & Awareness',
+                description: 'Master the fundamentals of cybersecurity with interactive training. Learn to identify threats, implement defensive strategies, and protect digital assets.',
+                icon: Shield,
+                color: 'from-blue-500 to-blue-600'
+              },
+              {
+                title: 'Social Engineering Defense',
+                description: 'Recognize and counter manipulation tactics used by hackers. Covers phishing, impersonation, and practical defense strategies.',
+                icon: Users,
+                color: 'from-purple-500 to-purple-600'
+              },
+              {
+                title: 'Data Privacy Fundamentals',
+                description: 'Understand data privacy, regulatory requirements, best practices, and privacy controls.',
+                icon: Lock,
+                color: 'from-green-500 to-green-600'
+              }
+            ].map((program, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: index * 0.1 }}
+                className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow duration-300"
+              >
+                <div className={`inline-flex items-center justify-center w-12 h-12 bg-gradient-to-r ${program.color} rounded-lg mb-4`}>
+                  <program.icon className="h-6 w-6 text-white" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-3">
+                  {program.title}
+                </h3>
+                <p className="text-gray-600 dark:text-gray-300 mb-4">
+                  {program.description}
+                </p>
+                <Link
+                  to="/courses"
+                  className="text-primary-600 hover:text-primary-700 font-medium flex items-center space-x-1"
+                >
+                  <span>View Details</span>
+                  <ChevronRight className="h-4 w-4" />
+                </Link>
+              </motion.div>
+            ))
+          )}
+        </div>
+
+        <div className="text-center mt-12">
+          <Link
+            to="/courses"
+            className="inline-flex items-center space-x-2 bg-gradient-to-r from-primary-500 to-secondary-500 text-white px-8 py-3 rounded-lg hover:from-primary-600 hover:to-secondary-600 transition-colors"
+          >
+            <span>View All Courses</span>
+            <ChevronRight className="h-5 w-5" />
+          </Link>
         </div>
       </div>
     </section>
@@ -285,7 +385,7 @@ const CTA = () => {
               className="inline-flex items-center space-x-2 bg-white text-primary-600 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors"
             >
               <BookOpen className="h-5 w-5" />
-              <span>Browse Training Programs</span>
+              <span>Browse Courses</span>
             </Link>
           ) : (
             <button
@@ -314,7 +414,7 @@ const Home = () => {
       <div className="min-h-screen">
         <Hero />
         <VideoLearningFeatures />
-        <TrainingPrograms />
+        <FeaturedCourses />
         <WhyChooseUs />
         <CTA />
       </div>
