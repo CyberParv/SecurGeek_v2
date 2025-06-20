@@ -665,21 +665,50 @@ const CourseEditor = () => {
     const [movedItem] = newContent.splice(currentIndex, 1)
     newContent.splice(newIndex, 0, movedItem)
 
-    // Update order_index for affected items
-    const updates = newContent.map((item, index) => ({
-      id: item.id,
-      order_index: index,
-      type: item.type
-    }))
-
     try {
-      // Update both lessons and assessments
-      for (const update of updates) {
-        const table = update.type === 'lesson' ? 'lessons' : 'assessments'
+      if (movedItem.type === 'lesson') {
+        // Handle lessons with three-step process to avoid unique constraint violation
+        const TEMP_ORDER_INDEX = 99999
+        
+        // Step 1: Move the lesson being reordered to a temporary high order_index
         await supabase
-          .from(table)
-          .update({ order_index: update.order_index })
-          .eq('id', update.id)
+          .from('lessons')
+          .update({ order_index: TEMP_ORDER_INDEX })
+          .eq('id', movedItem.id)
+
+        // Step 2: Update all other lessons to their new positions
+        const otherLessons = newContent.filter(item => item.type === 'lesson' && item.id !== movedItem.id)
+        for (let i = 0; i < otherLessons.length; i++) {
+          const lesson = otherLessons[i]
+          const finalIndex = newContent.findIndex(item => item.id === lesson.id)
+          
+          await supabase
+            .from('lessons')
+            .update({ order_index: finalIndex })
+            .eq('id', lesson.id)
+        }
+
+        // Step 3: Move the originally moved lesson to its final position
+        const finalIndex = newContent.findIndex(item => item.id === movedItem.id)
+        await supabase
+          .from('lessons')
+          .update({ order_index: finalIndex })
+          .eq('id', movedItem.id)
+      } else {
+        // Handle assessments with direct update (no unique constraint issue)
+        const updates = newContent
+          .filter(item => item.type === 'assessment')
+          .map((item, index) => ({
+            id: item.id,
+            order_index: newContent.findIndex(content => content.id === item.id)
+          }))
+
+        for (const update of updates) {
+          await supabase
+            .from('assessments')
+            .update({ order_index: update.order_index })
+            .eq('id', update.id)
+        }
       }
 
       // Update local state
