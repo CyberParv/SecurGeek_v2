@@ -22,6 +22,7 @@ import Home from './pages/Home'
 import Courses from './pages/Courses'
 import CourseDetail from './pages/CourseDetail'
 import CoursePlayer from './pages/CoursePlayer'
+import CoursePreview from './pages/CoursePreview'
 import Dashboard from './pages/Dashboard'
 import Profile from './pages/Profile'
 import AdminDashboard from './pages/admin/AdminDashboard'
@@ -101,6 +102,7 @@ function AppContent() {
         <main className="pt-16">
           <Routes>
             <Route path="/" element={<Home />} />
+            <Route path="/preview" element={<CoursePreview />} />
             <Route path="/courses" element={<Courses />} />
             <Route path="/courses/:id" element={<CourseDetail />} />
             <Route path="/courses/:id/learn" element={

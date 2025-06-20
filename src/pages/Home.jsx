@@ -73,8 +73,8 @@ const FloatingElements = () => {
 }
 
 const Hero = () => {
-  // const { isAuthenticated } = useSelector(state => state.auth)
-  // const dispatch = useDispatch()
+  const { isAuthenticated } = useSelector(state => state.auth)
+  const dispatch = useDispatch()
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -96,6 +96,26 @@ const Hero = () => {
         duration: 0.5,
         ease: "easeOut"
       }
+    }
+  }
+
+  const handleGetStarted = () => {
+    if (isAuthenticated) {
+      // Navigate to courses if authenticated
+      window.location.href = '/courses'
+    } else {
+      // Open signup modal if not authenticated
+      dispatch(openModal('signup'))
+    }
+  }
+
+  const handlePreviewLessons = () => {
+    if (isAuthenticated) {
+      // Navigate to courses if authenticated
+      window.location.href = '/courses'
+    } else {
+      // Navigate to preview page if not authenticated
+      window.location.href = '/preview'
     }
   }
 
@@ -189,27 +209,27 @@ const Hero = () => {
               whileHover={{ scale: 1.01 }}
               whileTap={{ scale: 0.99 }}
             >
-              <Link
-                to="/courses"
+              <button
+                onClick={handleGetStarted}
                 className="group relative bg-gradient-to-r from-primary-500 to-secondary-500 text-white px-6 py-3 rounded-xl text-lg font-semibold hover:from-primary-600 hover:to-secondary-600 transition-all duration-200 flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl"
               >
                 <BookOpen className="h-5 w-5 group-hover:rotate-6 transition-transform duration-200" />
-                <span>Start Learning</span>
+                <span>{isAuthenticated ? 'Browse Courses' : 'Start Learning'}</span>
                 <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform duration-200" />
-              </Link>
+              </button>
             </motion.div>
             
             <motion.div
               whileHover={{ scale: 1.01 }}
               whileTap={{ scale: 0.99 }}
             >
-              <Link
-                to="/courses"
+              <button
+                onClick={handlePreviewLessons}
                 className="group relative border-2 border-primary-500 text-primary-600 dark:text-primary-400 px-6 py-3 rounded-xl text-lg font-semibold hover:bg-primary-500 hover:text-white transition-all duration-200 flex items-center justify-center space-x-2 backdrop-blur-sm bg-white/50 dark:bg-gray-800/50"
               >
                 <Play className="h-5 w-5 group-hover:scale-105 transition-transform duration-200" />
                 <span>Preview Lessons</span>
-              </Link>
+              </button>
             </motion.div>
           </motion.div>
         </motion.div>
@@ -308,6 +328,7 @@ const VideoLearningFeatures = () => {
 
 const FeaturedCourses = () => {
   const { courses, loading } = useSelector(state => state.courses)
+  const { isAuthenticated } = useSelector(state => state.auth)
   const dispatch = useDispatch()
 
   useEffect(() => {
@@ -353,6 +374,22 @@ const FeaturedCourses = () => {
       gradient: 'from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20'
     }
   ]
+
+  const handleCourseClick = (course) => {
+    if (isAuthenticated) {
+      window.location.href = course.id ? `/courses/${course.id}` : '/courses'
+    } else {
+      dispatch(openModal('login'))
+    }
+  }
+
+  const handleViewAllCourses = () => {
+    if (isAuthenticated) {
+      window.location.href = '/courses'
+    } else {
+      dispatch(openModal('login'))
+    }
+  }
 
   if (loading) {
     return (
@@ -401,12 +438,13 @@ const FeaturedCourses = () => {
           {(topCourses.length > 0 ? topCourses : staticPrograms).map((course, index) => (
             <motion.div
               key={course.id || index}
-              className="group relative"
+              className="group relative cursor-pointer"
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: index * 0.1 }}
               viewport={{ once: true }}
               whileHover={{ y: -3 }}
+              onClick={() => handleCourseClick(course)}
             >
               <div className={`relative bg-gradient-to-br ${course.gradient || 'from-white to-gray-50 dark:from-gray-800 dark:to-gray-700'} rounded-2xl p-6 shadow-lg group-hover:shadow-xl transition-all duration-200 border border-gray-200 dark:border-gray-600 overflow-hidden`}>
                 {/* Animated border */}
@@ -430,13 +468,10 @@ const FeaturedCourses = () => {
                     whileHover={{ x: 3 }}
                     transition={{ type: "spring", stiffness: 400 }}
                   >
-                    <Link
-                      to={course.id ? `/courses/${course.id}` : '/courses'}
-                      className="inline-flex items-center space-x-2 text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 font-semibold group-hover:text-primary-700 transition-colors duration-200"
-                    >
-                      <span>View Details</span>
+                    <div className="inline-flex items-center space-x-2 text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 font-semibold group-hover:text-primary-700 transition-colors duration-200">
+                      <span>{isAuthenticated ? 'View Details' : 'Login to Access'}</span>
                       <ChevronRight className="h-4 w-4 group-hover:translate-x-1 transition-transform duration-200" />
-                    </Link>
+                    </div>
                   </motion.div>
                 </div>
               </div>
@@ -454,13 +489,13 @@ const FeaturedCourses = () => {
             whileHover={{ scale: 1.01 }}
             whileTap={{ scale: 0.99 }}
           >
-            <Link
-              to="/courses"
+            <button
+              onClick={handleViewAllCourses}
               className="group inline-flex items-center space-x-2 bg-gradient-to-r from-primary-500 to-secondary-500 text-white px-6 py-3 rounded-xl hover:from-primary-600 hover:to-secondary-600 transition-all duration-200 shadow-lg hover:shadow-xl font-semibold"
             >
-              <span>View All Courses</span>
+              <span>{isAuthenticated ? 'View All Courses' : 'Login to View Courses'}</span>
               <ChevronRight className="h-5 w-5 group-hover:translate-x-1 transition-transform duration-200" />
-            </Link>
+            </button>
           </motion.div>
         </motion.div>
       </div>
@@ -585,6 +620,14 @@ const CTA = () => {
   const { isAuthenticated } = useSelector(state => state.auth)
   const dispatch = useDispatch()
 
+  const handleGetStarted = () => {
+    if (isAuthenticated) {
+      window.location.href = '/courses'
+    } else {
+      dispatch(openModal('signup'))
+    }
+  }
+
   return (
     <section className="py-16 bg-gradient-to-br from-primary-500 via-secondary-500 to-cyber-500 relative overflow-hidden">
       {/* Optimized animated background elements */}
@@ -652,25 +695,14 @@ const CTA = () => {
             whileHover={{ scale: 1.01 }}
             whileTap={{ scale: 0.99 }}
           >
-            {isAuthenticated ? (
-              <Link
-                to="/courses"
-                className="group inline-flex items-center space-x-2 bg-white text-primary-600 px-8 py-4 rounded-xl font-bold text-lg hover:bg-gray-100 transition-all duration-200 shadow-2xl hover:shadow-3xl"
-              >
-                <BookOpen className="h-5 w-5 group-hover:rotate-6 transition-transform duration-200" />
-                <span>Browse Courses</span>
-                <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform duration-200" />
-              </Link>
-            ) : (
-              <button
-                onClick={() => dispatch(openModal('signup'))}
-                className="group inline-flex items-center space-x-2 bg-white text-primary-600 px-8 py-4 rounded-xl font-bold text-lg hover:bg-gray-100 transition-all duration-200 shadow-2xl hover:shadow-3xl"
-              >
-                <Shield className="h-5 w-5 group-hover:rotate-6 transition-transform duration-200" />
-                <span>Get Started Today</span>
-                <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform duration-200" />
-              </button>
-            )}
+            <button
+              onClick={handleGetStarted}
+              className="group inline-flex items-center space-x-2 bg-white text-primary-600 px-8 py-4 rounded-xl font-bold text-lg hover:bg-gray-100 transition-all duration-200 shadow-2xl hover:shadow-3xl"
+            >
+              <Shield className="h-5 w-5 group-hover:rotate-6 transition-transform duration-200" />
+              <span>{isAuthenticated ? 'Browse Courses' : 'Get Started Today'}</span>
+              <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform duration-200" />
+            </button>
           </motion.div>
         </motion.div>
       </div>

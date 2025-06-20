@@ -13,18 +13,34 @@ import {
   ChevronRight,
   BookOpen,
   Award,
-  Globe
+  Globe,
+  Lock
 } from 'lucide-react'
 import { fetchCourses, setSearchQuery, setFilters } from '../store/slices/courseSlice'
+import { openModal } from '../store/slices/uiSlice'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 
 const CourseCard = ({ course }) => {
+  const { isAuthenticated } = useSelector(state => state.auth)
+  const dispatch = useDispatch()
+
+  const handleCourseClick = () => {
+    if (isAuthenticated) {
+      // Navigate to course detail if authenticated
+      window.location.href = `/courses/${course.id}`
+    } else {
+      // Open login modal if not authenticated
+      dispatch(openModal('login'))
+    }
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
-      className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
+      className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1 cursor-pointer"
+      onClick={handleCourseClick}
     >
       <div className="aspect-video bg-gradient-to-r from-primary-500 to-secondary-500 flex items-center justify-center relative overflow-hidden">
         <Play className="h-12 w-12 text-white z-10" />
@@ -35,6 +51,12 @@ const CourseCard = ({ course }) => {
             alt={course.title}
             className="absolute inset-0 w-full h-full object-cover"
           />
+        )}
+        {!isAuthenticated && (
+          <div className="absolute top-2 right-2 bg-black/70 text-white px-2 py-1 rounded-lg flex items-center space-x-1">
+            <Lock className="h-3 w-3" />
+            <span className="text-xs">Login Required</span>
+          </div>
         )}
       </div>
       
@@ -97,13 +119,10 @@ const CourseCard = ({ course }) => {
         </div>
         
         <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-          <Link
-            to={`/courses/${course.id}`}
-            className="w-full bg-gradient-to-r from-primary-500 to-secondary-500 text-white px-4 py-2 rounded-lg hover:from-primary-600 hover:to-secondary-600 transition-colors flex items-center justify-center space-x-2"
-          >
-            <span>View Course</span>
+          <div className="w-full bg-gradient-to-r from-primary-500 to-secondary-500 text-white px-4 py-2 rounded-lg hover:from-primary-600 hover:to-secondary-600 transition-colors flex items-center justify-center space-x-2">
+            <span>{isAuthenticated ? 'View Course' : 'Login to Access'}</span>
             <ChevronRight className="h-4 w-4" />
-          </Link>
+          </div>
         </div>
       </div>
     </motion.div>
@@ -172,11 +191,18 @@ const FilterSection = ({ filters, onFilterChange, searchQuery, onSearchChange })
 
 const Courses = () => {
   const { courses, loading, error, searchQuery, filters } = useSelector(state => state.courses)
+  const { isAuthenticated } = useSelector(state => state.auth)
   const dispatch = useDispatch()
 
   useEffect(() => {
+    // Redirect to login if not authenticated
+    if (!isAuthenticated) {
+      dispatch(openModal('login'))
+      return
+    }
+    
     dispatch(fetchCourses())
-  }, [dispatch])
+  }, [dispatch, isAuthenticated])
 
   const handleFilterChange = (newFilters) => {
     dispatch(setFilters(newFilters))
@@ -196,6 +222,44 @@ const Courses = () => {
     
     return matchesSearch && matchesCategory && matchesLevel
   })
+
+  // Show login prompt if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-16">
+        <div className="container mx-auto px-4 text-center">
+          <div className="max-w-md mx-auto">
+            <div className="mb-8">
+              <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-r from-primary-500 to-secondary-500 rounded-full mb-4">
+                <Lock className="h-10 w-10 text-white" />
+              </div>
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
+                Login Required
+              </h1>
+              <p className="text-gray-600 dark:text-gray-300 mb-8">
+                Please log in to access our cybersecurity courses and start your learning journey.
+              </p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <button
+                onClick={() => dispatch(openModal('login'))}
+                className="inline-flex items-center justify-center space-x-2 bg-gradient-to-r from-primary-500 to-secondary-500 text-white px-6 py-3 rounded-lg hover:from-primary-600 hover:to-secondary-600 transition-colors"
+              >
+                <span>Sign In</span>
+              </button>
+              <button
+                onClick={() => dispatch(openModal('signup'))}
+                className="inline-flex items-center justify-center space-x-2 border-2 border-primary-500 text-primary-600 dark:text-primary-400 px-6 py-3 rounded-lg hover:bg-primary-500 hover:text-white transition-colors"
+              >
+                <span>Sign Up</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   if (loading) {
     return (
