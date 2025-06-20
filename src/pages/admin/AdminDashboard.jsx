@@ -274,11 +274,13 @@ const AdminOverview = () => {
     // Fetch all data on component mount
     const fetchAllData = async () => {
       try {
+        console.log('Fetching all admin data...')
         await Promise.all([
           dispatch(fetchAnalytics()),
           dispatch(fetchAllUsers()),
           dispatch(fetchAllCourses())
         ])
+        console.log('All admin data fetched')
       } catch (error) {
         console.error('Error fetching admin data:', error)
       }
@@ -287,9 +289,20 @@ const AdminOverview = () => {
     fetchAllData()
   }, [dispatch])
 
+  // Debug logging
+  useEffect(() => {
+    console.log('Admin state updated:', {
+      usersCount: users.length,
+      coursesCount: courses.length,
+      analytics,
+      loading
+    })
+  }, [users, courses, analytics, loading])
+
   const handleRefresh = async () => {
     setRefreshing(true)
     try {
+      console.log('Refreshing admin data...')
       await Promise.all([
         dispatch(fetchAnalytics()),
         dispatch(fetchAllUsers()),
@@ -297,24 +310,25 @@ const AdminOverview = () => {
       ])
       toast.success('Data refreshed successfully!')
     } catch (error) {
+      console.error('Refresh error:', error)
       toast.error('Failed to refresh data')
     } finally {
       setRefreshing(false)
     }
   }
 
-  // Use real-time data from the store
+  // Use real-time data from the store with fallbacks
   const stats = [
     {
       label: 'Total Users',
-      value: users.length || analytics.totalUsers || 0,
+      value: users.length > 0 ? users.length : (analytics.totalUsers || 0),
       icon: Users,
       color: 'text-blue-600',
       bg: 'bg-blue-100 dark:bg-blue-900/20'
     },
     {
       label: 'Total Courses',
-      value: courses.length || analytics.totalCourses || 0,
+      value: courses.length > 0 ? courses.length : (analytics.totalCourses || 0),
       icon: BookOpen,
       color: 'text-green-600',
       bg: 'bg-green-100 dark:bg-green-900/20'
@@ -335,7 +349,7 @@ const AdminOverview = () => {
     }
   ]
 
-  if (loading && !analytics.totalUsers) {
+  if (loading && users.length === 0 && courses.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
         <LoadingSpinner size="lg" />
@@ -354,6 +368,10 @@ const AdminOverview = () => {
             <p className="text-gray-600 dark:text-gray-300">
               Manage your platform and monitor performance
             </p>
+            {/* Debug info */}
+            <div className="text-xs text-gray-500 mt-2">
+              Debug: Users in store: {users.length}, Courses in store: {courses.length}, Analytics users: {analytics.totalUsers}
+            </div>
           </div>
           <button
             onClick={handleRefresh}
