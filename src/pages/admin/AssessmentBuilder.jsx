@@ -14,7 +14,8 @@ import {
   Target,
   Settings,
   Eye,
-  X
+  X,
+  AlertTriangle
 } from 'lucide-react'
 import { useFormik } from 'formik'
 import * as Yup from 'yup'
@@ -26,7 +27,11 @@ const QuestionEditor = ({ question, onSave, onCancel, questionTypes }) => {
   const questionSchema = Yup.object({
     question_text: Yup.string().required('Question text is required'),
     question_type: Yup.string().required('Question type is required'),
-    correct_answer: Yup.string().required('Correct answer is required'),
+    correct_answer: Yup.string().when('question_type', {
+      is: (val) => val === 'multiple_choice' || val === 'true_false',
+      then: () => Yup.string().required('Correct answer is required'),
+      otherwise: () => Yup.string().required('Correct answer is required')
+    }),
     points: Yup.number().min(1, 'Points must be at least 1').required('Points are required'),
   })
 
@@ -36,20 +41,46 @@ const QuestionEditor = ({ question, onSave, onCancel, questionTypes }) => {
       question_type: question?.question_type || 'multiple_choice',
       options: question?.options || ['', '', '', ''],
       correct_answer: question?.correct_answer || '',
+      correct_answers: question?.correct_answers || [], // For multiple correct answers
       explanation: question?.explanation || '',
       points: question?.points || 1,
     },
     validationSchema: questionSchema,
     onSubmit: (values) => {
-      const questionData = {
-        ...values,
-        options: values.question_type === 'multiple_choice' ? 
-          values.options.filter(opt => opt.trim() !== '') : 
-          values.question_type === 'true_false' ? ['True', 'False'] : null
+      let questionData = { ...values }
+      
+      // Handle different question types
+      if (values.question_type === 'multiple_choice') {
+        questionData.options = values.options.filter(opt => opt.trim() !== '')
+        questionData.correct_answers = null // Clear multiple correct answers
+      } else if (values.question_type === 'multiple_correct') {
+        questionData.options = values.options.filter(opt => opt.trim() !== '')
+        // For multiple correct, store as JSON array in correct_answer field
+        questionData.correct_answer = JSON.stringify(values.correct_answers)
+        questionData.correct_answers = null // This field is just for form state
+      } else if (values.question_type === 'true_false') {
+        questionData.options = ['True', 'False']
+        questionData.correct_answers = null
+      } else {
+        questionData.options = null
+        questionData.correct_answers = null
       }
+      
       onSave(questionData)
     },
   })
+
+  // Initialize correct_answers for multiple_correct questions
+  useEffect(() => {
+    if (question?.question_type === 'multiple_correct' && question?.correct_answer) {
+      try {
+        const correctAnswers = JSON.parse(question.correct_answer)
+        formik.setFieldValue('correct_answers', correctAnswers)
+      } catch (error) {
+        console.error('Error parsing correct answers:', error)
+      }
+    }
+  }, [question])
 
   const addOption = () => {
     formik.setFieldValue('options', [...formik.values.options, ''])
@@ -58,198 +89,272 @@ const QuestionEditor = ({ question, onSave, onCancel, questionTypes }) => {
   const removeOption = (index) => {
     const newOptions = formik.values.options.filter((_, i) => i !== index)
     formik.setFieldValue('options', newOptions)
+    
+    // Remove from correct answers if it was selected
+    if (formik.values.question_type === 'multiple_correct') {
+      const removedOption = formik.values.options[index]
+      const newCorrectAnswers = formik.values.correct_answers.filter(answer => answer !== removedOption)
+      formik.setFieldValue('correct_answers', newCorrectAnswers)
+    }
   }
 
   const updateOption = (index, value) => {
+    const oldValue = formik.values.options[index]
     const newOptions = [...formik.values.options]
     newOptions[index] = value
     formik.setFieldValue('options', newOptions)
+    
+    // Update correct answers if this option was selected
+    if (formik.values.question_type === 'multiple_correct') {
+      const newCorrectAnswers = formik.values.correct_answers.map(answer => 
+        answer === oldValue ? value : answer
+      )
+      formik.setFieldValue('correct_answers', newCorrectAnswers)
+    }
+  }
+
+  const toggleCorrectAnswer = (option) => {
+    const currentCorrectAnswers = formik.values.correct_answers || []
+    const isSelected = currentCorrectAnswers.includes(option)
+    
+    if (isSelected) {
+      formik.setFieldValue('correct_answers', currentCorrectAnswers.filter(answer => answer !== option))
+    } else {
+      formik.setFieldValue('correct_answers', [...currentCorrectAnswers, option])
+    }
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.95 }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
-    >
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto">
-        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-              {question ? 'Edit Question' : 'Add New Question'}
-            </h2>
-            <button
-              onClick={onCancel}
-              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-            >
-              <X className="h-5 w-5 text-gray-500" />
-            </button>
-          </div>
-        </div>
-
-        <form onSubmit={formik.handleSubmit} className="p-6 space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Question Text
-            </label>
-            <textarea
-              {...formik.getFieldProps('question_text')}
-              rows={3}
-              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-              placeholder="Enter your question here..."
-            />
-            {formik.touched.question_text && formik.errors.question_text && (
-              <p className="mt-1 text-sm text-red-600">{formik.errors.question_text}</p>
-            )}
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
+      >
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto">
+          <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                {question ? 'Edit Question' : 'Add New Question'}
+              </h2>
+              <button
+                onClick={onCancel}
+                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              >
+                <X className="h-5 w-5 text-gray-500" />
+              </button>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <form onSubmit={formik.handleSubmit} className="p-6 space-y-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Question Type
+                Question Text
               </label>
-              <select
-                {...formik.getFieldProps('question_type')}
-                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-              >
-                {questionTypes.map(type => (
-                  <option key={type.value} value={type.value}>
-                    {type.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Points
-              </label>
-              <input
-                type="number"
-                {...formik.getFieldProps('points')}
-                min="1"
-                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-              />
-              {formik.touched.points && formik.errors.points && (
-                <p className="mt-1 text-sm text-red-600">{formik.errors.points}</p>
-              )}
-            </div>
-          </div>
-
-          {/* Options for multiple choice */}
-          {formik.values.question_type === 'multiple_choice' && (
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Answer Options
-                </label>
-                <button
-                  type="button"
-                  onClick={addOption}
-                  className="flex items-center space-x-1 text-primary-600 hover:text-primary-700 text-sm"
-                >
-                  <Plus className="h-4 w-4" />
-                  <span>Add Option</span>
-                </button>
-              </div>
-              <div className="space-y-3">
-                {formik.values.options.map((option, index) => (
-                  <div key={index} className="flex items-center space-x-3">
-                    <span className="text-sm font-medium text-gray-500 w-8">
-                      {String.fromCharCode(65 + index)}.
-                    </span>
-                    <input
-                      type="text"
-                      value={option}
-                      onChange={(e) => updateOption(index, e.target.value)}
-                      className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                      placeholder={`Option ${String.fromCharCode(65 + index)}`}
-                    />
-                    {formik.values.options.length > 2 && (
-                      <button
-                        type="button"
-                        onClick={() => removeOption(index)}
-                        className="p-2 text-red-600 hover:text-red-700"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Correct Answer
-            </label>
-            {formik.values.question_type === 'multiple_choice' ? (
-              <select
-                {...formik.getFieldProps('correct_answer')}
-                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-              >
-                <option value="">Select correct answer</option>
-                {formik.values.options.filter(opt => opt.trim() !== '').map((option, index) => (
-                  <option key={index} value={option}>
-                    {String.fromCharCode(65 + index)}. {option}
-                  </option>
-                ))}
-              </select>
-            ) : formik.values.question_type === 'true_false' ? (
-              <select
-                {...formik.getFieldProps('correct_answer')}
-                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-              >
-                <option value="">Select correct answer</option>
-                <option value="True">True</option>
-                <option value="False">False</option>
-              </select>
-            ) : (
               <textarea
-                {...formik.getFieldProps('correct_answer')}
+                {...formik.getFieldProps('question_text')}
                 rows={3}
                 className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                placeholder="Enter the correct answer or key points..."
+                placeholder="Enter your question here..."
               />
-            )}
-            {formik.touched.correct_answer && formik.errors.correct_answer && (
-              <p className="mt-1 text-sm text-red-600">{formik.errors.correct_answer}</p>
-            )}
-          </div>
+              {formik.touched.question_text && formik.errors.question_text && (
+                <p className="mt-1 text-sm text-red-600">{formik.errors.question_text}</p>
+              )}
+            </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Explanation (Optional)
-            </label>
-            <textarea
-              {...formik.getFieldProps('explanation')}
-              rows={3}
-              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-              placeholder="Explain why this is the correct answer..."
-            />
-          </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Question Type
+                </label>
+                <select
+                  {...formik.getFieldProps('question_type')}
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                >
+                  {questionTypes.map(type => (
+                    <option key={type.value} value={type.value}>
+                      {type.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-          <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200 dark:border-gray-700">
-            <button
-              type="button"
-              onClick={onCancel}
-              className="px-6 py-3 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-6 py-3 bg-gradient-to-r from-primary-500 to-secondary-500 text-white rounded-lg hover:from-primary-600 hover:to-secondary-600 transition-colors flex items-center space-x-2"
-            >
-              <Save className="h-4 w-4" />
-              <span>Save Question</span>
-            </button>
-          </div>
-        </form>
-      </div>
-    </motion.div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Points
+                </label>
+                <input
+                  type="number"
+                  {...formik.getFieldProps('points')}
+                  min="1"
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                />
+                {formik.touched.points && formik.errors.points && (
+                  <p className="mt-1 text-sm text-red-600">{formik.errors.points}</p>
+                )}
+              </div>
+            </div>
+
+            {/* Options for multiple choice and multiple correct */}
+            {(formik.values.question_type === 'multiple_choice' || formik.values.question_type === 'multiple_correct') && (
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Answer Options
+                    {formik.values.question_type === 'multiple_correct' && (
+                      <span className="ml-2 text-xs text-blue-600 dark:text-blue-400">
+                        (Select multiple correct answers)
+                      </span>
+                    )}
+                  </label>
+                  <button
+                    type="button"
+                    onClick={addOption}
+                    className="flex items-center space-x-1 text-primary-600 hover:text-primary-700 text-sm"
+                  >
+                    <Plus className="h-4 w-4" />
+                    <span>Add Option</span>
+                  </button>
+                </div>
+                
+                {formik.values.question_type === 'multiple_correct' && (
+                  <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                    <div className="flex items-center space-x-2">
+                      <AlertTriangle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                      <span className="text-sm text-blue-800 dark:text-blue-200 font-medium">
+                        Multiple Correct Answers
+                      </span>
+                    </div>
+                    <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                      Students will be informed that this question may have multiple correct answers. 
+                      Check all options that are correct.
+                    </p>
+                  </div>
+                )}
+                
+                <div className="space-y-3">
+                  {formik.values.options.map((option, index) => (
+                    <div key={index} className="flex items-center space-x-3">
+                      <span className="text-sm font-medium text-gray-500 w-8">
+                        {String.fromCharCode(65 + index)}.
+                      </span>
+                      
+                      {formik.values.question_type === 'multiple_correct' ? (
+                        <input
+                          type="checkbox"
+                          checked={formik.values.correct_answers?.includes(option) || false}
+                          onChange={() => toggleCorrectAnswer(option)}
+                          disabled={!option.trim()}
+                          className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                        />
+                      ) : (
+                        <input
+                          type="radio"
+                          name="correct_answer"
+                          value={option}
+                          checked={formik.values.correct_answer === option}
+                          onChange={(e) => formik.setFieldValue('correct_answer', e.target.value)}
+                          disabled={!option.trim()}
+                          className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300"
+                        />
+                      )}
+                      
+                      <input
+                        type="text"
+                        value={option}
+                        onChange={(e) => updateOption(index, e.target.value)}
+                        className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                        placeholder={`Option ${String.fromCharCode(65 + index)}`}
+                      />
+                      {formik.values.options.length > 2 && (
+                        <button
+                          type="button"
+                          onClick={() => removeOption(index)}
+                          className="p-2 text-red-600 hover:text-red-700"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                
+                {formik.values.question_type === 'multiple_correct' && formik.values.correct_answers?.length === 0 && (
+                  <p className="mt-2 text-sm text-red-600">Please select at least one correct answer</p>
+                )}
+              </div>
+            )}
+
+            {/* Correct Answer for other question types */}
+            {formik.values.question_type === 'true_false' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Correct Answer
+                </label>
+                <select
+                  {...formik.getFieldProps('correct_answer')}
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                >
+                  <option value="">Select correct answer</option>
+                  <option value="True">True</option>
+                  <option value="False">False</option>
+                </select>
+                {formik.touched.correct_answer && formik.errors.correct_answer && (
+                  <p className="mt-1 text-sm text-red-600">{formik.errors.correct_answer}</p>
+                )}
+              </div>
+            )}
+
+            {(formik.values.question_type === 'short_answer' || formik.values.question_type === 'essay') && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Correct Answer / Key Points
+                </label>
+                <textarea
+                  {...formik.getFieldProps('correct_answer')}
+                  rows={3}
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  placeholder="Enter the correct answer or key points..."
+                />
+                {formik.touched.correct_answer && formik.errors.correct_answer && (
+                  <p className="mt-1 text-sm text-red-600">{formik.errors.correct_answer}</p>
+                )}
+              </div>
+            )}
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Explanation (Optional)
+              </label>
+              <textarea
+                {...formik.getFieldProps('explanation')}
+                rows={3}
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                placeholder="Explain why this is the correct answer..."
+              />
+            </div>
+
+            <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200 dark:border-gray-700">
+              <button
+                type="button"
+                onClick={onCancel}
+                className="px-6 py-3 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-6 py-3 bg-gradient-to-r from-primary-500 to-secondary-500 text-white rounded-lg hover:from-primary-600 hover:to-secondary-600 transition-colors flex items-center space-x-2"
+              >
+                <Save className="h-4 w-4" />
+                <span>Save Question</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      </motion.div>
+    </AnimatePresence>
   )
 }
 
@@ -266,7 +371,8 @@ const AssessmentBuilder = () => {
   const [showQuestionEditor, setShowQuestionEditor] = useState(false)
 
   const questionTypes = [
-    { value: 'multiple_choice', label: 'Multiple Choice' },
+    { value: 'multiple_choice', label: 'Multiple Choice (Single Answer)' },
+    { value: 'multiple_correct', label: 'Multiple Choice (Multiple Correct)' },
     { value: 'true_false', label: 'True/False' },
     { value: 'short_answer', label: 'Short Answer' },
     { value: 'essay', label: 'Essay' }
@@ -403,6 +509,101 @@ const AssessmentBuilder = () => {
     }
   }
 
+  const renderQuestionPreview = (question) => {
+    if (question.question_type === 'multiple_choice') {
+      return (
+        <div className="space-y-2 mb-3">
+          {question.options?.map((option, optIndex) => (
+            <div
+              key={optIndex}
+              className={`flex items-center space-x-2 p-2 rounded-lg ${
+                option === question.correct_answer
+                  ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800'
+                  : 'bg-gray-50 dark:bg-gray-700'
+              }`}
+            >
+              <span className="text-sm font-medium text-gray-500 w-6">
+                {String.fromCharCode(65 + optIndex)}.
+              </span>
+              <span className={`text-sm ${
+                option === question.correct_answer
+                  ? 'text-green-800 dark:text-green-200 font-medium'
+                  : 'text-gray-700 dark:text-gray-300'
+              }`}>
+                {option}
+              </span>
+              {option === question.correct_answer && (
+                <span className="text-green-600 dark:text-green-400 text-xs">
+                  ✓ Correct
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      )
+    } else if (question.question_type === 'multiple_correct') {
+      let correctAnswers = []
+      try {
+        correctAnswers = JSON.parse(question.correct_answer || '[]')
+      } catch (error) {
+        console.error('Error parsing correct answers:', error)
+      }
+      
+      return (
+        <div className="space-y-2 mb-3">
+          <div className="flex items-center space-x-2 mb-2">
+            <AlertTriangle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            <span className="text-sm text-blue-800 dark:text-blue-200 font-medium">
+              Multiple correct answers possible
+            </span>
+          </div>
+          {question.options?.map((option, optIndex) => {
+            const isCorrect = correctAnswers.includes(option)
+            return (
+              <div
+                key={optIndex}
+                className={`flex items-center space-x-2 p-2 rounded-lg ${
+                  isCorrect
+                    ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800'
+                    : 'bg-gray-50 dark:bg-gray-700'
+                }`}
+              >
+                <span className="text-sm font-medium text-gray-500 w-6">
+                  {String.fromCharCode(65 + optIndex)}.
+                </span>
+                <span className={`text-sm ${
+                  isCorrect
+                    ? 'text-green-800 dark:text-green-200 font-medium'
+                    : 'text-gray-700 dark:text-gray-300'
+                }`}>
+                  {option}
+                </span>
+                {isCorrect && (
+                  <span className="text-green-600 dark:text-green-400 text-xs">
+                    ✓ Correct
+                  </span>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )
+    } else if (question.question_type === 'true_false') {
+      return (
+        <div className="mb-3">
+          <span className="text-sm text-gray-600 dark:text-gray-300">
+            Correct Answer: 
+            <span className="ml-2 font-medium text-green-600 dark:text-green-400">
+              {question.correct_answer}
+            </span>
+          </span>
+        </div>
+      )
+    }
+    
+    return null
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
@@ -526,47 +727,7 @@ const AssessmentBuilder = () => {
                         {question.question_text}
                       </h3>
                       
-                      {question.question_type === 'multiple_choice' && question.options && (
-                        <div className="space-y-2 mb-3">
-                          {question.options.map((option, optIndex) => (
-                            <div
-                              key={optIndex}
-                              className={`flex items-center space-x-2 p-2 rounded-lg ${
-                                option === question.correct_answer
-                                  ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800'
-                                  : 'bg-gray-50 dark:bg-gray-700'
-                              }`}
-                            >
-                              <span className="text-sm font-medium text-gray-500 w-6">
-                                {String.fromCharCode(65 + optIndex)}.
-                              </span>
-                              <span className={`text-sm ${
-                                option === question.correct_answer
-                                  ? 'text-green-800 dark:text-green-200 font-medium'
-                                  : 'text-gray-700 dark:text-gray-300'
-                              }`}>
-                                {option}
-                              </span>
-                              {option === question.correct_answer && (
-                                <span className="text-green-600 dark:text-green-400 text-xs">
-                                  ✓ Correct
-                                </span>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      {question.question_type === 'true_false' && (
-                        <div className="mb-3">
-                          <span className="text-sm text-gray-600 dark:text-gray-300">
-                            Correct Answer: 
-                            <span className="ml-2 font-medium text-green-600 dark:text-green-400">
-                              {question.correct_answer}
-                            </span>
-                          </span>
-                        </div>
-                      )}
+                      {renderQuestionPreview(question)}
 
                       {question.explanation && (
                         <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
@@ -617,19 +778,17 @@ const AssessmentBuilder = () => {
       </div>
 
       {/* Question Editor Modal */}
-      <AnimatePresence>
-        {showQuestionEditor && (
-          <QuestionEditor
-            question={editingQuestion}
-            questionTypes={questionTypes}
-            onSave={handleSaveQuestion}
-            onCancel={() => {
-              setShowQuestionEditor(false)
-              setEditingQuestion(null)
-            }}
-          />
-        )}
-      </AnimatePresence>
+      {showQuestionEditor && (
+        <QuestionEditor
+          question={editingQuestion}
+          questionTypes={questionTypes}
+          onSave={handleSaveQuestion}
+          onCancel={() => {
+            setShowQuestionEditor(false)
+            setEditingQuestion(null)
+          }}
+        />
+      )}
     </div>
   )
 }

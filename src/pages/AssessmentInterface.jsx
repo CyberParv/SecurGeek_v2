@@ -10,7 +10,8 @@ import {
   Flag,
   Award,
   RotateCcw,
-  FileText
+  FileText,
+  AlertTriangle
 } from 'lucide-react'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import toast from 'react-hot-toast'
@@ -100,6 +101,23 @@ const AssessmentInterface = () => {
     }))
   }
 
+  const handleMultipleAnswerChange = (questionId, option, isChecked) => {
+    setAnswers(prev => {
+      const currentAnswers = prev[questionId] || []
+      if (isChecked) {
+        return {
+          ...prev,
+          [questionId]: [...currentAnswers, option]
+        }
+      } else {
+        return {
+          ...prev,
+          [questionId]: currentAnswers.filter(answer => answer !== option)
+        }
+      }
+    })
+  }
+
   const handleNextQuestion = () => {
     if (currentQuestionIndex < questions.length - 1) {
       setCurrentQuestionIndex(prev => prev + 1)
@@ -112,21 +130,43 @@ const AssessmentInterface = () => {
     }
   }
 
-  const handleSubmitAssessment = async () => {
-    setIsSubmitting(true)
-    try {
-      // Calculate score
-      let earnedPoints = 0
-      let totalPoints = 0
+  const calculateScore = () => {
+    let earnedPoints = 0
+    let totalPoints = 0
 
-      questions.forEach(question => {
-        totalPoints += question.points || 1
-        const userAnswer = answers[question.id]
+    questions.forEach(question => {
+      totalPoints += question.points || 1
+      const userAnswer = answers[question.id]
+      
+      if (question.question_type === 'multiple_correct') {
+        // Handle multiple correct answers
+        try {
+          const correctAnswers = JSON.parse(question.correct_answer || '[]')
+          const userAnswers = userAnswer || []
+          
+          // Check if user selected exactly the correct answers
+          if (userAnswers.length === correctAnswers.length && 
+              userAnswers.every(answer => correctAnswers.includes(answer))) {
+            earnedPoints += question.points || 1
+          }
+        } catch (error) {
+          console.error('Error parsing correct answers:', error)
+        }
+      } else {
+        // Handle single answer questions
         if (userAnswer && userAnswer.toLowerCase() === question.correct_answer.toLowerCase()) {
           earnedPoints += question.points || 1
         }
-      })
+      }
+    })
 
+    return { earnedPoints, totalPoints }
+  }
+
+  const handleSubmitAssessment = async () => {
+    setIsSubmitting(true)
+    try {
+      const { earnedPoints, totalPoints } = calculateScore()
       const score = totalPoints > 0 ? Math.round((earnedPoints / totalPoints) * 100) : 0
       const passed = score >= (assessment.passing_score || 70)
 
@@ -229,6 +269,92 @@ const AssessmentInterface = () => {
     setAnswers({})
     setCurrentQuestionIndex(0)
     setTimeRemaining(assessment?.time_limit_minutes ? assessment.time_limit_minutes * 60 : null)
+  }
+
+  const renderQuestionContent = (question) => {
+    if (question.question_type === 'multiple_choice') {
+      return (
+        <div className="space-y-3">
+          {question.options?.map((option, index) => (
+            <label
+              key={index}
+              className="flex items-center space-x-3 p-4 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors"
+            >
+              <input
+                type="radio"
+                name={`question-${question.id}`}
+                value={option}
+                checked={answers[question.id] === option}
+                onChange={(e) => handleAnswerChange(question.id, e.target.value)}
+                className="w-4 h-4 text-primary-600 focus:ring-primary-500"
+              />
+              <span className="text-gray-900 dark:text-white">{option}</span>
+            </label>
+          ))}
+        </div>
+      )
+    } else if (question.question_type === 'multiple_correct') {
+      return (
+        <div className="space-y-3">
+          <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+            <div className="flex items-center space-x-2">
+              <AlertTriangle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              <span className="text-sm text-blue-800 dark:text-blue-200 font-medium">
+                Multiple answers may be correct
+              </span>
+            </div>
+            <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+              Select all answers that you think are correct.
+            </p>
+          </div>
+          {question.options?.map((option, index) => (
+            <label
+              key={index}
+              className="flex items-center space-x-3 p-4 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors"
+            >
+              <input
+                type="checkbox"
+                checked={(answers[question.id] || []).includes(option)}
+                onChange={(e) => handleMultipleAnswerChange(question.id, option, e.target.checked)}
+                className="w-4 h-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+              />
+              <span className="text-gray-900 dark:text-white">{option}</span>
+            </label>
+          ))}
+        </div>
+      )
+    } else if (question.question_type === 'true_false') {
+      return (
+        <div className="space-y-3">
+          {['True', 'False'].map((option) => (
+            <label
+              key={option}
+              className="flex items-center space-x-3 p-4 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors"
+            >
+              <input
+                type="radio"
+                name={`question-${question.id}`}
+                value={option}
+                checked={answers[question.id] === option}
+                onChange={(e) => handleAnswerChange(question.id, e.target.value)}
+                className="w-4 h-4 text-primary-600 focus:ring-primary-500"
+              />
+              <span className="text-gray-900 dark:text-white">{option}</span>
+            </label>
+          ))}
+        </div>
+      )
+    } else if (question.question_type === 'short_answer' || question.question_type === 'essay') {
+      return (
+        <textarea
+          value={answers[question.id] || ''}
+          onChange={(e) => handleAnswerChange(question.id, e.target.value)}
+          rows={question.question_type === 'essay' ? 8 : 3}
+          className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+          placeholder="Enter your answer here..."
+        />
+      )
+    }
   }
 
   if (loading) {
@@ -471,57 +597,7 @@ const AssessmentInterface = () => {
                     {currentQuestion?.question_text}
                   </h2>
                   
-                  {currentQuestion?.question_type === 'multiple_choice' && (
-                    <div className="space-y-3">
-                      {currentQuestion.options?.map((option, index) => (
-                        <label
-                          key={index}
-                          className="flex items-center space-x-3 p-4 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors"
-                        >
-                          <input
-                            type="radio"
-                            name={`question-${currentQuestion.id}`}
-                            value={option}
-                            checked={answers[currentQuestion.id] === option}
-                            onChange={(e) => handleAnswerChange(currentQuestion.id, e.target.value)}
-                            className="w-4 h-4 text-primary-600 focus:ring-primary-500"
-                          />
-                          <span className="text-gray-900 dark:text-white">{option}</span>
-                        </label>
-                      ))}
-                    </div>
-                  )}
-
-                  {currentQuestion?.question_type === 'true_false' && (
-                    <div className="space-y-3">
-                      {['True', 'False'].map((option) => (
-                        <label
-                          key={option}
-                          className="flex items-center space-x-3 p-4 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors"
-                        >
-                          <input
-                            type="radio"
-                            name={`question-${currentQuestion.id}`}
-                            value={option}
-                            checked={answers[currentQuestion.id] === option}
-                            onChange={(e) => handleAnswerChange(currentQuestion.id, e.target.value)}
-                            className="w-4 h-4 text-primary-600 focus:ring-primary-500"
-                          />
-                          <span className="text-gray-900 dark:text-white">{option}</span>
-                        </label>
-                      ))}
-                    </div>
-                  )}
-
-                  {(currentQuestion?.question_type === 'short_answer' || currentQuestion?.question_type === 'essay') && (
-                    <textarea
-                      value={answers[currentQuestion.id] || ''}
-                      onChange={(e) => handleAnswerChange(currentQuestion.id, e.target.value)}
-                      rows={currentQuestion.question_type === 'essay' ? 8 : 3}
-                      className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                      placeholder="Enter your answer here..."
-                    />
-                  )}
+                  {renderQuestionContent(currentQuestion)}
                 </div>
 
                 {/* Navigation */}
@@ -536,7 +612,7 @@ const AssessmentInterface = () => {
                   </button>
 
                   <div className="text-sm text-gray-500 dark:text-gray-400">
-                    Object.keys(answers).length of {questions.length} answered
+                    {Object.keys(answers).length} of {questions.length} answered
                   </div>
 
                   <button
