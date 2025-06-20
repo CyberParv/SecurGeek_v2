@@ -42,6 +42,78 @@ export const fetchAllUsers = createAsyncThunk(
   }
 )
 
+export const updateUser = createAsyncThunk(
+  'admin/updateUser',
+  async ({ userId, updates }, { rejectWithValue }) => {
+    try {
+      if (!userId) {
+        throw new Error('User ID is required')
+      }
+      
+      const updateData = {
+        ...updates,
+        updated_at: new Date().toISOString()
+      }
+      
+      const { data, error } = await supabase
+        .from('profiles')
+        .update(updateData)
+        .eq('id', userId)
+        .select()
+        .single()
+      
+      if (error) {
+        console.error('Update user error:', error)
+        throw error
+      }
+      
+      if (!data) {
+        throw new Error('User not found or could not be updated')
+      }
+      
+      return data
+    } catch (error) {
+      console.error('Error in updateUser:', error)
+      return rejectWithValue(error.message || 'Failed to update user')
+    }
+  }
+)
+
+export const deleteUser = createAsyncThunk(
+  'admin/deleteUser',
+  async (userId, { rejectWithValue }) => {
+    try {
+      if (!userId) {
+        throw new Error('User ID is required')
+      }
+      
+      // First delete the user's profile
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', userId)
+      
+      if (profileError) {
+        console.error('Delete profile error:', profileError)
+        throw profileError
+      }
+      
+      // Then delete from auth.users (this requires service role)
+      const { error: authError } = await supabase.auth.admin.deleteUser(userId)
+      
+      if (authError) {
+        console.error('Delete auth user error:', authError)
+        // Don't throw here as profile is already deleted
+      }
+      
+      return userId
+    } catch (error) {
+      console.error('Error in deleteUser:', error)
+      return rejectWithValue(error.message || 'Failed to delete user')
+    }
+  }
+)
+
 export const fetchAllCourses = createAsyncThunk(
   'admin/fetchAllCourses',
   async (_, { rejectWithValue }) => {
@@ -286,6 +358,72 @@ export const fetchAnalytics = createAsyncThunk(
   }
 )
 
+export const fetchDetailedAnalytics = createAsyncThunk(
+  'admin/fetchDetailedAnalytics',
+  async (_, { rejectWithValue }) => {
+    try {
+      // Fetch enrollment trends (last 30 days)
+      const thirtyDaysAgo = new Date()
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+      
+      const { data: enrollmentTrends, error: trendsError } = await supabase
+        .from('enrollments')
+        .select('enrolled_at')
+        .gte('enrolled_at', thirtyDaysAgo.toISOString())
+        .order('enrolled_at', { ascending: true })
+      
+      if (trendsError) throw trendsError
+      
+      // Fetch course popularity
+      const { data: coursePopularity, error: popularityError } = await supabase
+        .from('courses')
+        .select(`
+          id,
+          title,
+          enrollments:enrollments(count)
+        `)
+        .order('created_at', { ascending: false })
+        .limit(10)
+      
+      if (popularityError) throw popularityError
+      
+      // Fetch user role distribution
+      const { data: roleDistribution, error: roleError } = await supabase
+        .from('profiles')
+        .select('role')
+      
+      if (roleError) throw roleError
+      
+      // Process enrollment trends by day
+      const trendsByDay = {}
+      enrollmentTrends?.forEach(enrollment => {
+        const date = new Date(enrollment.enrolled_at).toDateString()
+        trendsByDay[date] = (trendsByDay[date] || 0) + 1
+      })
+      
+      const enrollmentChartData = Object.entries(trendsByDay).map(([date, count]) => ({
+        date: new Date(date).toLocaleDateString(),
+        enrollments: count
+      }))
+      
+      // Process role distribution
+      const roleStats = roleDistribution?.reduce((acc, user) => {
+        acc[user.role] = (acc[user.role] || 0) + 1
+        return acc
+      }, {})
+      
+      return {
+        enrollmentTrends: enrollmentChartData,
+        coursePopularity: coursePopularity || [],
+        roleDistribution: roleStats || {},
+      }
+    } catch (error) {
+      console.error('Error in fetchDetailedAnalytics:', error)
+      return rejectWithValue(error.message || 'Failed to fetch detailed analytics')
+    }
+  }
+)
+
 const adminSlice = createSlice({
   name: 'admin',
   initialState,
@@ -321,6 +459,37 @@ const adminSlice = createSlice({
         state.loading = false
         state.error = action.payload
         state.users = [] // Ensure users is always an array
+      })
+      // Update User
+      .addCase(updateUser.pending, (state) => {
+        state.loading = true
+        state.error = null
+      })
+      .addCase(updateUser.fulfilled, (state, action) => {
+        state.loading = false
+        const index = state.users.findIndex(user => user.id === action.payload.id)
+        if (index !== -1) {
+          state.users[index] = action.payload
+        }
+      })
+      .addCase(updateUser.rejected, (state, action) => {
+        state.loading = false
+        state.error = action.payload
+      })
+      // Delete User
+      .addCase(deleteUser.pending, (state) => {
+        state.loading = true
+        state.error = null
+      })
+      .addCase(deleteUser.fulfilled, (state, action) => {
+        state.loading = false
+        state.users = state.users.filter(user => user.id !== action.payload)
+        // Update analytics
+        state.analytics.totalUsers = state.users.length
+      })
+      .addCase(deleteUser.rejected, (state, action) => {
+        state.loading = false
+        state.error = action.payload
       })
       // Fetch All Courses
       .addCase(fetchAllCourses.pending, (state) => {
@@ -399,6 +568,19 @@ const adminSlice = createSlice({
         state.error = action.payload
         console.error('Analytics fetch failed:', action.payload)
         // Keep existing analytics data on error
+      })
+      // Fetch Detailed Analytics
+      .addCase(fetchDetailedAnalytics.pending, (state) => {
+        state.loading = true
+        state.error = null
+      })
+      .addCase(fetchDetailedAnalytics.fulfilled, (state, action) => {
+        state.loading = false
+        state.analytics = { ...state.analytics, ...action.payload }
+      })
+      .addCase(fetchDetailedAnalytics.rejected, (state, action) => {
+        state.loading = false
+        state.error = action.payload
       })
   },
 })
