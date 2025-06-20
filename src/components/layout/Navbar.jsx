@@ -154,23 +154,6 @@ const Navbar = () => {
               >
                 Contact Us
               </button>
-              {isAuthenticated && (
-                <Link 
-                  to="/dashboard" 
-                  className="text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
-                >
-                  Dashboard
-                </Link>
-              )}
-              {isAdmin && (
-                <Link 
-                  to="/admin" 
-                  className="text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors flex items-center space-x-1"
-                >
-                  <Crown className="h-4 w-4" />
-                  <span>Admin</span>
-                </Link>
-              )}
             </div>
 
             {/* Right Side */}
@@ -217,6 +200,14 @@ const Navbar = () => {
                         className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-2"
                       >
                         <Link
+                          to="/dashboard"
+                          className="flex items-center space-x-2 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                          onClick={() => setIsProfileOpen(false)}
+                        >
+                          <BarChart3 className="h-4 w-4" />
+                          <span>Dashboard</span>
+                        </Link>
+                        <Link
                           to="/profile"
                           className="flex items-center space-x-2 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                           onClick={() => setIsProfileOpen(false)}
@@ -225,7 +216,7 @@ const Navbar = () => {
                           <span>Profile</span>
                         </Link>
                         <Link
-                          to="/dashboard"
+                          to="/courses"
                           className="flex items-center space-x-2 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                           onClick={() => setIsProfileOpen(false)}
                         >
