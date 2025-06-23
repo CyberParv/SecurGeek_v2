@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { useSelector, useDispatch } from 'react-redux'
+import { useSelector } from 'react-redux'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Helmet } from 'react-helmet-async'
 import { 
@@ -10,17 +10,12 @@ import {
   Save, 
   ArrowUp, 
   ArrowDown, 
-  FileText,
-  Clock,
-  Target,
   Settings,
   Eye,
   X,
   BookOpen,
   Award,
   Play,
-  Users,
-  BarChart3,
   ChevronDown,
   ChevronRight,
   GripVertical
@@ -31,7 +26,7 @@ import { supabase } from '../../lib/supabase'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import toast from 'react-hot-toast'
 
-const SectionModal = ({ isOpen, onClose, courseId, section, onSave }) => {
+const SectionModal = ({ isOpen, onClose, section, onSave }) => {
   const [loading, setLoading] = useState(false)
 
   const sectionSchema = Yup.object({
@@ -143,7 +138,7 @@ const SectionModal = ({ isOpen, onClose, courseId, section, onSave }) => {
   )
 }
 
-const ContentModal = ({ isOpen, onClose, sectionId, content, contentType, onSave }) => {
+const ContentModal = ({ isOpen, onClose, content, contentType, onSave }) => {
   const [loading, setLoading] = useState(false)
 
   const contentSchema = Yup.object({
@@ -467,68 +462,105 @@ const CourseEditor = () => {
   const [selectedSectionId, setSelectedSectionId] = useState(null)
   const [contentType, setContentType] = useState('lesson')
   const [collapsedSections, setCollapsedSections] = useState({})
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+  const [showLeaveModal, setShowLeaveModal] = useState(false)
+  const pendingNavigation = useRef(null)
 
+  // Helper: Deep copy for comparison
+  const deepCopy = (obj) => JSON.parse(JSON.stringify(obj))
+  // Store initial state for comparison
+  const initialSectionsRef = useRef()
   useEffect(() => {
-    if (courseId) {
-      fetchCourseData()
+    if (sections.length && !initialSectionsRef.current) {
+      initialSectionsRef.current = deepCopy(sections)
     }
-  }, [courseId])
+  }, [sections])
 
-  const fetchCourseData = async () => {
+  // Set unsaved changes on any mutation
+  const markUnsaved = useCallback(() => setHasUnsavedChanges(true), [])
+
+  // Patch all mutating actions to mark unsaved
+  const handleAddContent = (sectionId, type) => {
+    markUnsaved()
+    setSelectedSectionId(sectionId)
+    setContentType(type)
+    setEditingContent(null)
+    setShowContentModal(true)
+  }
+  const handleEditSection = (section) => {
+    markUnsaved()
+    setEditingSection(section)
+    setShowSectionModal(true)
+  }
+  const handleEditContent = (content) => {
+    markUnsaved()
+    setEditingContent(content)
+    setContentType(content.type)
+    setShowContentModal(true)
+  }
+  const handleDeleteSection = async (sectionId) => {
+    markUnsaved()
+    if (!window.confirm('Are you sure you want to delete this section? This will also delete all content in this section.')) return
+
     try {
-      // Fetch course details
-      const { data: courseData, error: courseError } = await supabase
-        .from('courses')
-        .select('*')
-        .eq('id', courseId)
-        .single()
-
-      if (courseError) throw courseError
-
-      // Fetch course sections with lessons and assessments
-      const { data: sectionsData, error: sectionsError } = await supabase
+      const { error } = await supabase
         .from('course_sections')
-        .select(`
-          *,
-          lessons:lessons(*),
-          assessments:assessments(*)
-        `)
-        .eq('course_id', courseId)
-        .order('order_index')
+        .delete()
+        .eq('id', sectionId)
 
-      if (sectionsError) throw sectionsError
+      if (error) throw error
 
-      // Combine lessons and assessments into unified content array
-      const sectionsWithContent = sectionsData?.map(section => {
-        const content = [
-          ...(section.lessons?.map(lesson => ({ ...lesson, type: 'lesson' })) || []),
-          ...(section.assessments?.map(assessment => ({ ...assessment, type: 'assessment' })) || [])
-        ].sort((a, b) => a.order_index - b.order_index)
-        
-        return {
-          ...section,
-          content
-        }
-      }) || []
-
-      setCourse(courseData)
-      setSections(sectionsWithContent)
-
-      // Initialize collapsed state
-      const initialCollapsed = {}
-      sectionsWithContent?.forEach(section => {
-        initialCollapsed[section.id] = false
-      })
-      setCollapsedSections(initialCollapsed)
+      setSections(prev => prev.filter(s => s.id !== sectionId))
+      toast.success('Section deleted successfully!')
     } catch (error) {
-      console.error('Error fetching course data:', error)
-      toast.error('Failed to load course data')
-    } finally {
-      setLoading(false)
+      console.error('Error deleting section:', error)
+      toast.error('Failed to delete section')
     }
   }
+  const handleDeleteContent = async (contentId, type) => {
+    markUnsaved()
+    if (!window.confirm(`Are you sure you want to delete this ${type}?`)) return
 
+    try {
+      const table = type === 'lesson' ? 'lessons' : 'assessments'
+      const { error } = await supabase
+        .from(table)
+        .delete()
+        .eq('id', contentId)
+
+      if (error) throw error
+
+      setSections(prev => prev.map(section => ({
+        ...section,
+        content: section.content?.filter(content => content.id !== contentId) || []
+      })))
+      toast.success(`${type} deleted successfully!`)
+    } catch (error) {
+      console.error(`Error deleting ${type}:`, error)
+      toast.error(`Failed to delete ${type}`)
+    }
+  }
+  const handleMoveContent = (sectionId, contentId, direction) => {
+    markUnsaved()
+    const section = sections.find(s => s.id === sectionId)
+    if (!section) return
+
+    const currentIndex = section.content.findIndex(c => c.id === contentId)
+    const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1
+    if (newIndex < 0 || newIndex >= section.content.length) return
+
+    const newContent = [...section.content]
+    const [movedItem] = newContent.splice(currentIndex, 1)
+    newContent.splice(newIndex, 0, movedItem)
+
+    // Only update local state, not the DB
+    setSections(prev => prev.map(s =>
+      s.id === sectionId ? { ...s, content: newContent } : s
+    ))
+  }
+  // Also mark unsaved on section/content save
   const handleSaveSection = async (sectionData) => {
+    markUnsaved()
     setSaving(true)
     try {
       if (editingSection) {
@@ -582,8 +614,8 @@ const CourseEditor = () => {
       setSaving(false)
     }
   }
-
   const handleSaveContent = async (contentData, type) => {
+    markUnsaved()
     setSaving(true)
     try {
       if (editingContent) {
@@ -652,135 +684,144 @@ const CourseEditor = () => {
     }
   }
 
-  const handleMoveContent = async (sectionId, contentId, direction) => {
-    const section = sections.find(s => s.id === sectionId)
-    if (!section) return
+  // Navigation guard
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault()
+        e.returnValue = ''
+      }
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [hasUnsavedChanges])
 
-    const currentIndex = section.content.findIndex(c => c.id === contentId)
-    const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1
-    
-    if (newIndex < 0 || newIndex >= section.content.length) return
+  // Intercept navigation
+  const guardedNavigate = (to) => {
+    if (hasUnsavedChanges) {
+      setShowLeaveModal(true)
+      pendingNavigation.current = () => navigate(to)
+    } else {
+      navigate(to)
+    }
+  }
 
-    const newContent = [...section.content]
-    const [movedItem] = newContent.splice(currentIndex, 1)
-    newContent.splice(newIndex, 0, movedItem)
-
+  // Save all changes: ensure unique sequential order_index for all content, but only update if changed
+  const handleSaveAll = async () => {
+    setSaving(true)
     try {
-      if (movedItem.type === 'lesson') {
-        // Handle lessons with three-step process to avoid unique constraint violation
-        const TEMP_ORDER_INDEX = 99999
-        
-        // Step 1: Move the lesson being reordered to a temporary high order_index
-        await supabase
-          .from('lessons')
-          .update({ order_index: TEMP_ORDER_INDEX })
-          .eq('id', movedItem.id)
-
-        // Step 2: Update all other lessons to their new positions
-        const otherLessons = newContent.filter(item => item.type === 'lesson' && item.id !== movedItem.id)
-        for (let i = 0; i < otherLessons.length; i++) {
-          const lesson = otherLessons[i]
-          const finalIndex = newContent.findIndex(item => item.id === lesson.id)
-          
-          await supabase
-            .from('lessons')
-            .update({ order_index: finalIndex })
-            .eq('id', lesson.id)
-        }
-
-        // Step 3: Move the originally moved lesson to its final position
-        const finalIndex = newContent.findIndex(item => item.id === movedItem.id)
-        await supabase
-          .from('lessons')
-          .update({ order_index: finalIndex })
-          .eq('id', movedItem.id)
-      } else {
-        // Handle assessments with direct update (no unique constraint issue)
-        const updates = newContent
-          .filter(item => item.type === 'assessment')
-          .map((item, index) => ({
-            id: item.id,
-            order_index: newContent.findIndex(content => content.id === item.id)
-          }))
-
-        for (const update of updates) {
-          await supabase
-            .from('assessments')
-            .update({ order_index: update.order_index })
-            .eq('id', update.id)
+      // Flatten all lessons in the course, assign unique order_index
+      const allLessons = []
+      sections.forEach(section => {
+        section.content.filter(c => c.type === 'lesson').forEach(lesson => {
+          allLessons.push({ ...lesson, section_id: section.id })
+        })
+      })
+      // Assign new order_index across the whole course
+      for (let i = 0; i < allLessons.length; i++) {
+        const lesson = allLessons[i]
+        await supabase.from('lessons').update({ order_index: i, section_id: lesson.section_id }).eq('id', lesson.id)
+      }
+      // Optionally, do the same for assessments if you want unique order across the course
+      // If you want unique order only within a section, keep as before
+      // (Here, we keep assessments ordered within their section)
+      for (const section of sections) {
+        const assessments = section.content.filter(c => c.type === 'assessment')
+        for (let i = 0; i < assessments.length; i++) {
+          const assessment = assessments[i]
+          await supabase.from('assessments').update({ order_index: i, section_id: section.id }).eq('id', assessment.id)
         }
       }
-
-      // Update local state
-      setSections(prev => prev.map(s => 
-        s.id === sectionId ? { ...s, content: newContent } : s
-      ))
-
-      toast.success('Content order updated!')
+      toast.success('All changes saved!')
+      setHasUnsavedChanges(false)
+      initialSectionsRef.current = deepCopy(sections)
     } catch (error) {
-      console.error('Error updating content order:', error)
-      toast.error('Failed to update content order')
+      toast.error('Failed to save changes')
+    } finally {
+      setSaving(false)
     }
   }
 
-  const handleDeleteSection = async (sectionId) => {
-    if (!window.confirm('Are you sure you want to delete this section? This will also delete all content in this section.')) return
+  // Modal actions
+  const handleLeaveModalSave = async () => {
+    await handleSaveAll()
+    setShowLeaveModal(false)
+    if (pendingNavigation.current) {
+      pendingNavigation.current()
+      pendingNavigation.current = null
+    }
+  }
+  const handleLeaveModalDiscard = () => {
+    setHasUnsavedChanges(false)
+    setShowLeaveModal(false)
+    if (pendingNavigation.current) {
+      pendingNavigation.current()
+      pendingNavigation.current = null
+    }
+  }
+  const handleLeaveModalCancel = () => {
+    setShowLeaveModal(false)
+    pendingNavigation.current = null
+  }
 
+  useEffect(() => {
+    if (courseId) {
+      fetchCourseData()
+    }
+  }, [courseId])
+
+  const fetchCourseData = async () => {
     try {
-      const { error } = await supabase
+      // Fetch course details
+      const { data: courseData, error: courseError } = await supabase
+        .from('courses')
+        .select('*')
+        .eq('id', courseId)
+        .single()
+
+      if (courseError) throw courseError
+
+      // Fetch course sections with lessons and assessments
+      const { data: sectionsData, error: sectionsError } = await supabase
         .from('course_sections')
-        .delete()
-        .eq('id', sectionId)
+        .select(`
+          *,
+          lessons:lessons(*),
+          assessments:assessments(*)
+        `)
+        .eq('course_id', courseId)
+        .order('order_index')
 
-      if (error) throw error
+      if (sectionsError) throw sectionsError
 
-      setSections(prev => prev.filter(s => s.id !== sectionId))
-      toast.success('Section deleted successfully!')
+      // Combine lessons and assessments into unified content array
+      const sectionsWithContent = sectionsData?.map(section => {
+        const content = [
+          ...(section.lessons?.map(lesson => ({ ...lesson, type: 'lesson' })) || []),
+          ...(section.assessments?.map(assessment => ({ ...assessment, type: 'assessment' })) || [])
+        ].sort((a, b) => a.order_index - b.order_index)
+        
+        return {
+          ...section,
+          content
+        }
+      }) || []
+
+      setCourse(courseData)
+      setSections(sectionsWithContent)
+
+      // Initialize collapsed state
+      const initialCollapsed = {}
+      sectionsWithContent?.forEach(section => {
+        initialCollapsed[section.id] = false
+      })
+      setCollapsedSections(initialCollapsed)
     } catch (error) {
-      console.error('Error deleting section:', error)
-      toast.error('Failed to delete section')
+      console.error('Error fetching course data:', error)
+      toast.error('Failed to load course data')
+    } finally {
+      setLoading(false)
     }
-  }
-
-  const handleDeleteContent = async (contentId, type) => {
-    if (!window.confirm(`Are you sure you want to delete this ${type}?`)) return
-
-    try {
-      const table = type === 'lesson' ? 'lessons' : 'assessments'
-      const { error } = await supabase
-        .from(table)
-        .delete()
-        .eq('id', contentId)
-
-      if (error) throw error
-
-      setSections(prev => prev.map(section => ({
-        ...section,
-        content: section.content?.filter(content => content.id !== contentId) || []
-      })))
-      toast.success(`${type} deleted successfully!`)
-    } catch (error) {
-      console.error(`Error deleting ${type}:`, error)
-      toast.error(`Failed to delete ${type}`)
-    }
-  }
-
-  const handleEditSection = (section) => {
-    setEditingSection(section)
-    setShowSectionModal(true)
-  }
-
-  const handleEditContent = (content) => {
-    setEditingContent(content)
-    setContentType(content.type)
-    setShowContentModal(true)
-  }
-
-  const handleAddContent = (sectionId, type) => {
-    setSelectedSectionId(sectionId)
-    setContentType(type)
-    setEditingContent(null)
-    setShowContentModal(true)
   }
 
   const toggleSection = (sectionId) => {
@@ -825,6 +866,20 @@ const CourseEditor = () => {
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
         <div className="container mx-auto px-4">
           <div className="max-w-6xl mx-auto">
+            {/* Save Changes Button */}
+            {hasUnsavedChanges && (
+              <div className="sticky top-0 z-30 bg-white dark:bg-gray-900 py-4 flex justify-end">
+                <button
+                  onClick={handleSaveAll}
+                  disabled={saving}
+                  className="bg-gradient-to-r from-primary-500 to-secondary-500 text-white px-6 py-2 rounded-lg shadow-lg hover:from-primary-600 hover:to-secondary-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                >
+                  {saving && <LoadingSpinner size="sm" />}
+                  <Save className="h-4 w-4" />
+                  <span>Save Changes</span>
+                </button>
+              </div>
+            )}
             {/* Header */}
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 mb-8">
               <div className="flex items-center justify-between">
@@ -845,7 +900,7 @@ const CourseEditor = () => {
                     <span>Preview</span>
                   </Link>
                   <button
-                    onClick={() => navigate('/admin/courses')}
+                    onClick={() => guardedNavigate('/admin/courses')}
                     className="px-6 py-3 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                   >
                     Back to Courses
@@ -1107,7 +1162,6 @@ const CourseEditor = () => {
           setShowSectionModal(false)
           setEditingSection(null)
         }}
-        courseId={courseId}
         section={editingSection}
         onSave={handleSaveSection}
       />
@@ -1119,11 +1173,54 @@ const CourseEditor = () => {
           setEditingContent(null)
           setSelectedSectionId(null)
         }}
-        sectionId={selectedSectionId}
         content={editingContent}
         contentType={contentType}
         onSave={handleSaveContent}
       />
+
+      {/* Leave Modal */}
+      <AnimatePresence>
+        {showLeaveModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black bg-opacity-50"
+              onClick={handleLeaveModalCancel}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md mx-4 p-6"
+            >
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Unsaved Changes</h2>
+              <p className="mb-6 text-gray-700 dark:text-gray-300">You have unsaved changes. Save before leaving or discard changes?</p>
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={handleLeaveModalCancel}
+                  className="px-4 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleLeaveModalDiscard}
+                  className="px-4 py-2 text-red-600 border border-red-300 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                >
+                  Discard
+                </button>
+                <button
+                  onClick={handleLeaveModalSave}
+                  className="bg-gradient-to-r from-primary-500 to-secondary-500 text-white px-6 py-2 rounded-lg hover:from-primary-600 hover:to-secondary-600 transition-colors"
+                >
+                  Save
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </>
   )
 }
