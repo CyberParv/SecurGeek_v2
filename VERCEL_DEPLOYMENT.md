@@ -13,8 +13,9 @@ This guide will help you deploy your SecurGeek platform to Vercel.
 You'll need to set up the following environment variables in Vercel:
 
 ### Required Variables
-- `VITE_SUPABASE_URL`: Your Supabase project URL
-- `VITE_SUPABASE_ANON_KEY`: Your Supabase anon/public key
+- `VITE_SUPABASE_URL`: https://fmksoufybswlzjmupskz.supabase.co 
+
+- `VITE_SUPABASE_ANON_KEY`: eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZta3NvdWZ5YnN3bHpqbXVwc2t6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAzMTIwNjAsImV4cCI6MjA2NTg4ODA2MH0.zBKF3pUxcpKQFhC8CEPez5LjZegKPagVFuJfpkGkmRg
 
 ### Getting Supabase Credentials
 1. Go to your [Supabase Dashboard](https://app.supabase.com)

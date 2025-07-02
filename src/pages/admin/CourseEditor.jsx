@@ -18,7 +18,9 @@ import {
   Play,
   ChevronDown,
   ChevronRight,
-  GripVertical
+  GripVertical,
+  FileText,
+
 } from 'lucide-react'
 import { useFormik } from 'formik'
 import * as Yup from 'yup'
@@ -446,6 +448,169 @@ const ContentModal = ({ isOpen, onClose, content, contentType, onSave }) => {
   )
 }
 
+const ResourceModal = ({ isOpen, onClose, resource, lessonId, onSave }) => {
+  const [loading, setLoading] = useState(false)
+
+  const resourceSchema = Yup.object({
+    title: Yup.string().required('Title is required'),
+    description: Yup.string(),
+    file_url: Yup.string().url('Must be a valid URL').required('File URL is required'),
+    file_type: Yup.string().required('File type is required'),
+  })
+
+  const formik = useFormik({
+    initialValues: {
+      title: resource?.title || '',
+      description: resource?.description || '',
+      file_url: resource?.file_url || '',
+      file_type: resource?.file_type || 'application/pdf',
+      is_public: resource?.is_public ?? true,
+    },
+    validationSchema: resourceSchema,
+    enableReinitialize: true,
+    onSubmit: async (values) => {
+      setLoading(true)
+      try {
+        await onSave({
+          ...values,
+          lesson_id: lessonId,
+        })
+        onClose()
+        formik.resetForm()
+      } catch (error) {
+        toast.error(error.message || 'Failed to save resource')
+      } finally {
+        setLoading(false)
+      }
+    },
+  })
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black bg-opacity-50"
+            onClick={onClose}
+          />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md mx-4 p-6"
+          >
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                {resource ? 'Edit Resource' : 'Add New Resource'}
+              </h2>
+              <button
+                onClick={onClose}
+                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              >
+                <X className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+              </button>
+            </div>
+
+            <form onSubmit={formik.handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Resource Title
+                </label>
+                <input
+                  type="text"
+                  {...formik.getFieldProps('title')}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  placeholder="e.g., Lesson Notes PDF"
+                />
+                {formik.touched.title && formik.errors.title && (
+                  <p className="mt-1 text-sm text-red-600">{formik.errors.title}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Description (Optional)
+                </label>
+                <textarea
+                  {...formik.getFieldProps('description')}
+                  rows={2}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  placeholder="Brief description of the resource"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  File URL
+                </label>
+                <input
+                  type="url"
+                  {...formik.getFieldProps('file_url')}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  placeholder="https://drive.google.com/uc?export=download&id=..."
+                />
+                {formik.touched.file_url && formik.errors.file_url && (
+                  <p className="mt-1 text-sm text-red-600">{formik.errors.file_url}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  File Type
+                </label>
+                <select
+                  {...formik.getFieldProps('file_type')}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                >
+                  <option value="application/pdf">PDF Document</option>
+                  <option value="application/vnd.openxmlformats-officedocument.wordprocessingml.document">Word Document</option>
+                  <option value="application/vnd.openxmlformats-officedocument.presentationml.presentation">PowerPoint</option>
+                  <option value="text/plain">Text File</option>
+                  <option value="application/zip">ZIP Archive</option>
+                </select>
+              </div>
+
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  {...formik.getFieldProps('is_public')}
+                  checked={formik.values.is_public}
+                  className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                />
+                <label className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
+                  Make resource publicly accessible to enrolled students
+                </label>
+              </div>
+
+              <div className="flex justify-end space-x-3 pt-4">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-4 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="bg-gradient-to-r from-primary-500 to-secondary-500 text-white px-6 py-2 rounded-lg hover:from-primary-600 hover:to-secondary-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                >
+                  {loading && <LoadingSpinner size="sm" />}
+                  <Save className="h-4 w-4" />
+                  <span>{resource ? 'Update Resource' : 'Add Resource'}</span>
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+  )
+}
+
 const CourseEditor = () => {
   const { courseId } = useParams()
   const navigate = useNavigate()
@@ -457,13 +622,17 @@ const CourseEditor = () => {
   const [saving, setSaving] = useState(false)
   const [showSectionModal, setShowSectionModal] = useState(false)
   const [showContentModal, setShowContentModal] = useState(false)
+  const [showResourceModal, setShowResourceModal] = useState(false)
   const [editingSection, setEditingSection] = useState(null)
   const [editingContent, setEditingContent] = useState(null)
+  const [editingResource, setEditingResource] = useState(null)
   const [selectedSectionId, setSelectedSectionId] = useState(null)
+  const [selectedLessonId, setSelectedLessonId] = useState(null)
   const [contentType, setContentType] = useState('lesson')
   const [collapsedSections, setCollapsedSections] = useState({})
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [showLeaveModal, setShowLeaveModal] = useState(false)
+  const [lessonResources, setLessonResources] = useState({})
   const pendingNavigation = useRef(null)
 
   // Helper: Deep copy for comparison
@@ -476,8 +645,24 @@ const CourseEditor = () => {
     }
   }, [sections])
 
-  // Set unsaved changes on any mutation
-  const markUnsaved = useCallback(() => setHasUnsavedChanges(true), [])
+  // Set unsaved changes on any mutation (auto-save disabled to prevent conflicts)
+  const markUnsaved = useCallback(() => {
+    setHasUnsavedChanges(true)
+    
+    // Auto-save disabled temporarily to prevent infinite loops during debugging
+    // TODO: Re-enable once ordering conflicts are fully resolved
+    
+    // if (window.autoSaveTimeout) {
+    //   clearTimeout(window.autoSaveTimeout)
+    // }
+    // 
+    // window.autoSaveTimeout = setTimeout(() => {
+    //   if (hasUnsavedChanges && !saving) {
+    //     console.log('Auto-saving changes...')
+    //     handleSaveAll()
+    //   }
+    // }, 5000) // Increased to 5 seconds
+  }, [])
 
   // Patch all mutating actions to mark unsaved
   const handleAddContent = (sectionId, type) => {
@@ -497,6 +682,105 @@ const CourseEditor = () => {
     setEditingContent(content)
     setContentType(content.type)
     setShowContentModal(true)
+  }
+
+  const handleAddResource = (lessonId) => {
+    setSelectedLessonId(lessonId)
+    setEditingResource(null)
+    setShowResourceModal(true)
+  }
+
+  const handleEditResource = (resource) => {
+    setEditingResource(resource)
+    setSelectedLessonId(resource.lesson_id)
+    setShowResourceModal(true)
+  }
+
+  const handleDeleteResource = async (resourceId) => {
+    if (!window.confirm('Are you sure you want to delete this resource?')) {
+      return
+    }
+
+    try {
+      const { error } = await supabase
+        .from('resources')
+        .delete()
+        .eq('id', resourceId)
+
+      if (error) throw error
+
+      // Refresh resources for the lesson
+      await fetchLessonResources()
+      toast.success('Resource deleted successfully')
+    } catch (error) {
+      console.error('Error deleting resource:', error)
+      toast.error('Failed to delete resource')
+    }
+  }
+
+  const fetchLessonResources = async () => {
+    if (!courseId) return
+
+    try {
+      const { data: resourcesData, error } = await supabase
+        .from('resources')
+        .select('*')
+        .eq('course_id', courseId)
+        .order('created_at')
+
+      if (error) throw error
+
+      // Group resources by lesson_id
+      const resourcesByLesson = {}
+      resourcesData?.forEach(resource => {
+        if (!resourcesByLesson[resource.lesson_id]) {
+          resourcesByLesson[resource.lesson_id] = []
+        }
+        resourcesByLesson[resource.lesson_id].push(resource)
+      })
+
+      setLessonResources(resourcesByLesson)
+    } catch (error) {
+      console.error('Error fetching lesson resources:', error)
+    }
+  }
+
+  const handleSaveResource = async (resourceData) => {
+    try {
+      if (editingResource) {
+        // Update existing resource
+        const { error } = await supabase
+          .from('resources')
+          .update({
+            ...resourceData,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', editingResource.id)
+
+        if (error) throw error
+        toast.success('Resource updated successfully')
+      } else {
+        // Create new resource
+        const { error } = await supabase
+          .from('resources')
+          .insert({
+            ...resourceData,
+            course_id: courseId,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+
+        if (error) throw error
+        toast.success('Resource added successfully')
+      }
+
+      await fetchLessonResources()
+      setShowResourceModal(false)
+      setEditingResource(null)
+    } catch (error) {
+      console.error('Error saving resource:', error)
+      throw error
+    }
   }
   const handleDeleteSection = async (sectionId) => {
     markUnsaved()
@@ -553,10 +837,12 @@ const CourseEditor = () => {
     const [movedItem] = newContent.splice(currentIndex, 1)
     newContent.splice(newIndex, 0, movedItem)
 
-    // Only update local state, not the DB
+    // Update local state immediately for better UX
     setSections(prev => prev.map(s =>
       s.id === sectionId ? { ...s, content: newContent } : s
     ))
+    
+    console.log(`Moved content ${contentId} ${direction} in section ${sectionId}`)
   }
   // Also mark unsaved on section/content save
   const handleSaveSection = async (sectionData) => {
@@ -706,37 +992,107 @@ const CourseEditor = () => {
     }
   }
 
-  // Save all changes: ensure unique sequential order_index for all content, but only update if changed
+    // Save all changes: ensure unique sequential order_index across the entire course
   const handleSaveAll = async () => {
     setSaving(true)
     try {
-      // Flatten all lessons in the course, assign unique order_index
-      const allLessons = []
-      sections.forEach(section => {
-        section.content.filter(c => c.type === 'lesson').forEach(lesson => {
-          allLessons.push({ ...lesson, section_id: section.id })
+      console.log('Starting save all process...')
+      
+      // Collect ALL content (lessons + assessments) maintaining section order
+      const allContent = []
+      
+      sections.forEach((section, sectionIndex) => {
+        section.content.forEach((content, contentIndex) => {
+          allContent.push({
+            ...content,
+            section_id: section.id,
+            section_order: sectionIndex,
+            content_order: contentIndex,
+            global_order: allContent.length // This will be the final order_index
+          })
         })
       })
-      // Assign new order_index across the whole course
-      for (let i = 0; i < allLessons.length; i++) {
-        const lesson = allLessons[i]
-        await supabase.from('lessons').update({ order_index: i, section_id: lesson.section_id }).eq('id', lesson.id)
-      }
-      // Optionally, do the same for assessments if you want unique order across the course
-      // If you want unique order only within a section, keep as before
-      // (Here, we keep assessments ordered within their section)
-      for (const section of sections) {
-        const assessments = section.content.filter(c => c.type === 'assessment')
-        for (let i = 0; i < assessments.length; i++) {
-          const assessment = assessments[i]
-          await supabase.from('assessments').update({ order_index: i, section_id: section.id }).eq('id', assessment.id)
+      
+      console.log(`Processing ${allContent.length} total content items (lessons + assessments)`)
+      console.log('Content order:', allContent.map((c, i) => `${i}: ${c.type}:${c.title} (section: ${c.section_id})`))
+      
+      // STEP 1: Clear all order_index values by setting them to unique negative values
+      // This prevents constraint violations during the reordering process
+      
+      for (let i = 0; i < allContent.length; i++) {
+        const content = allContent[i]
+        const tempOrderIndex = -(i + 10000) // Use large negative numbers
+        const table = content.type === 'lesson' ? 'lessons' : 'assessments'
+        
+        const { error: tempError } = await supabase
+          .from(table)
+          .update({ 
+            order_index: tempOrderIndex,
+            section_id: content.section_id 
+          })
+          .eq('id', content.id)
+        
+        if (tempError) {
+          console.error(`Error clearing ${content.type} order:`, tempError)
+          throw tempError
         }
       }
+      
+      // STEP 2: Set final sequential order_index values maintaining section order
+      // All content (lessons + assessments) get sequential order_index values
+      // based on their position within sections
+      
+      for (let i = 0; i < allContent.length; i++) {
+        const content = allContent[i]
+        const table = content.type === 'lesson' ? 'lessons' : 'assessments'
+        
+        const { error: finalError } = await supabase
+          .from(table)
+          .update({ 
+            order_index: i, // Sequential ordering maintaining section relationships
+            section_id: content.section_id 
+          })
+          .eq('id', content.id)
+        
+        if (finalError) {
+          console.error(`Error setting final ${content.type} order:`, finalError)
+          console.error('Error details:', finalError)
+          
+          // If it's a constraint error on assessments, they might not have the same constraint
+          if (content.type === 'assessment' && finalError.code === '23505') {
+            console.warn('Assessment constraint error - assessments might have different ordering rules')
+            // Continue with next item instead of throwing
+            continue
+          }
+          
+          throw finalError
+        }
+        
+        console.log(`✅ Set ${content.type} "${content.title}" to order_index ${i}`)
+      }
+      
+      console.log('Save all process completed successfully')
       toast.success('All changes saved!')
       setHasUnsavedChanges(false)
       initialSectionsRef.current = deepCopy(sections)
     } catch (error) {
-      toast.error('Failed to save changes')
+      console.error('Error in handleSaveAll:', error)
+      
+      // Provide more specific error messages
+      let errorMessage = 'Failed to save changes'
+      if (error.message?.includes('constraint') || error.code === '23505') {
+        errorMessage = 'Database ordering conflict - refreshing data...'
+      } else if (error.message?.includes('permission')) {
+        errorMessage = 'Permission denied - check your admin access'
+      } else if (error.message) {
+        errorMessage = `Error: ${error.message}`
+      }
+      
+      toast.error(errorMessage)
+      
+      // Refresh the data to ensure consistency
+      console.log('Refreshing course data after error...')
+      await fetchCourseData()
     } finally {
       setSaving(false)
     }
@@ -767,6 +1123,7 @@ const CourseEditor = () => {
   useEffect(() => {
     if (courseId) {
       fetchCourseData()
+      fetchLessonResources()
     }
   }, [courseId])
 
@@ -802,7 +1159,7 @@ const CourseEditor = () => {
         ].sort((a, b) => a.order_index - b.order_index)
         
         return {
-          ...section,
+        ...section,
           content
         }
       }) || []
@@ -866,20 +1223,6 @@ const CourseEditor = () => {
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
         <div className="container mx-auto px-4">
           <div className="max-w-6xl mx-auto">
-            {/* Save Changes Button */}
-            {hasUnsavedChanges && (
-              <div className="sticky top-0 z-30 bg-white dark:bg-gray-900 py-4 flex justify-end">
-                <button
-                  onClick={handleSaveAll}
-                  disabled={saving}
-                  className="bg-gradient-to-r from-primary-500 to-secondary-500 text-white px-6 py-2 rounded-lg shadow-lg hover:from-primary-600 hover:to-secondary-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
-                >
-                  {saving && <LoadingSpinner size="sm" />}
-                  <Save className="h-4 w-4" />
-                  <span>Save Changes</span>
-                </button>
-              </div>
-            )}
             {/* Header */}
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 mb-8">
               <div className="flex items-center justify-between">
@@ -1064,6 +1407,11 @@ const CourseEditor = () => {
                                           {content.video_url && (
                                             <span className="text-blue-600 dark:text-blue-400">Video</span>
                                           )}
+                                          {lessonResources[content.id]?.length > 0 && (
+                                            <span className="text-green-600 dark:text-green-400">
+                                              {lessonResources[content.id].length} Resource{lessonResources[content.id].length > 1 ? 's' : ''}
+                                            </span>
+                                          )}
                                         </>
                                       )}
                                       {content.type === 'assessment' && (
@@ -1090,6 +1438,15 @@ const CourseEditor = () => {
                                     <ArrowDown className="h-3 w-3" />
                                   </button>
                                   <div className="w-px h-4 bg-gray-300 dark:bg-gray-600 mx-1"></div>
+                                  {content.type === 'lesson' && (
+                                    <button
+                                      onClick={() => handleAddResource(content.id)}
+                                      className="p-1 text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-900/20 rounded"
+                                      title="Add Resource"
+                                    >
+                                      <FileText className="h-3 w-3" />
+                                    </button>
+                                  )}
                                   {content.type === 'assessment' && (
                                     <Link
                                       to={`/admin/assessment-builder/${courseId}/${content.id}`}
@@ -1151,6 +1508,21 @@ const CourseEditor = () => {
                 )}
               </div>
             </div>
+
+            {/* Save Changes Button - Moved below course content */}
+            {hasUnsavedChanges && (
+              <div className="mt-8 flex justify-center">
+                <button
+                  onClick={handleSaveAll}
+                  disabled={saving}
+                  className="bg-gradient-to-r from-primary-500 to-secondary-500 text-white px-8 py-3 rounded-lg shadow-lg hover:from-primary-600 hover:to-secondary-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 text-lg font-semibold"
+                >
+                  {saving && <LoadingSpinner size="sm" />}
+                  <Save className="h-5 w-5" />
+                  <span>Save All Changes</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -1176,6 +1548,18 @@ const CourseEditor = () => {
         content={editingContent}
         contentType={contentType}
         onSave={handleSaveContent}
+      />
+
+      <ResourceModal
+        isOpen={showResourceModal}
+        onClose={() => {
+          setShowResourceModal(false)
+          setEditingResource(null)
+          setSelectedLessonId(null)
+        }}
+        resource={editingResource}
+        lessonId={selectedLessonId}
+        onSave={handleSaveResource}
       />
 
       {/* Leave Modal */}

@@ -544,9 +544,14 @@ const AssessmentBuilder = () => {
     } else if (question.question_type === 'multiple_correct') {
       let correctAnswers = []
       try {
+        // First try to parse as JSON array
         correctAnswers = JSON.parse(question.correct_answer || '[]')
       } catch (error) {
-        console.error('Error parsing correct answers:', error)
+        // If parsing fails, assume it's a comma-separated string (legacy format)
+        if (question.correct_answer && typeof question.correct_answer === 'string') {
+          correctAnswers = question.correct_answer.split(',').map(answer => answer.trim())
+        }
+        console.warn('Parsed correct answers from legacy comma-separated format:', correctAnswers)
       }
       
       return (

@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
@@ -7,26 +7,68 @@ import {
   BookOpen, 
   Clock, 
   Award, 
-  TrendingUp, 
   Play, 
-  Calendar,
   Target,
-  Users,
   CheckCircle
 } from 'lucide-react'
 import { fetchEnrolledCourses } from '../store/slices/courseSlice'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
+import { supabase } from '../lib/supabase'
 
 const Dashboard = () => {
   const dispatch = useDispatch()
   const { enrolledCourses, loading } = useSelector(state => state.courses)
-  const { user, profile } = useSelector(state => state.auth)
+  const { user } = useSelector(state => state.auth)
+  const [recentActivity, setRecentActivity] = useState([])
 
   useEffect(() => {
     if (user?.id) {
       dispatch(fetchEnrolledCourses(user.id))
+      fetchRecentActivity()
     }
   }, [dispatch, user])
+
+  const fetchRecentActivity = async () => {
+    if (!user?.id) return
+
+    try {
+      // Get recent progress updates
+      const { data: progressData, error } = await supabase
+        .from('progress')
+        .select(`
+          *,
+          lesson:lessons(title),
+          enrollment:enrollments!inner(
+            course:courses(title)
+          )
+        `)
+        .eq('enrollment.user_id', user.id)
+        .order('updated_at', { ascending: false })
+        .limit(5)
+
+      if (error) throw error
+
+      const activities = progressData?.map(progress => ({
+        id: progress.id,
+        type: progress.completed ? 'completed' : 'started',
+        title: progress.lesson?.title || 'Unknown lesson',
+        course: progress.enrollment?.course?.title || 'Unknown course',
+        timestamp: progress.updated_at
+      })) || []
+
+      setRecentActivity(activities)
+    } catch (error) {
+      console.error('Error fetching recent activity:', error)
+      setRecentActivity([])
+    }
+  }
+
+  // Calculate statistics from enrollment data
+  const totalHoursSpent = enrolledCourses.reduce((total, enrollment) => {
+    return total + (enrollment.hoursSpent || 0)
+  }, 0)
+
+  const completedCourses = enrolledCourses.filter(e => e.calculatedProgress === 100).length
 
   const stats = [
     {
@@ -39,21 +81,21 @@ const Dashboard = () => {
     {
       icon: CheckCircle,
       label: 'Courses Completed',
-      value: enrolledCourses.filter(e => e.progress === 100).length,
+      value: completedCourses,
       color: 'text-green-600',
       bg: 'bg-green-100 dark:bg-green-900/20'
     },
     {
       icon: Clock,
       label: 'Hours Learned',
-      value: '24',
+      value: totalHoursSpent > 0 ? totalHoursSpent.toFixed(1) : '0',
       color: 'text-purple-600',
       bg: 'bg-purple-100 dark:bg-purple-900/20'
     },
     {
       icon: Award,
       label: 'Certificates',
-      value: enrolledCourses.filter(e => e.progress === 100).length,
+      value: completedCourses,
       color: 'text-yellow-600',
       bg: 'bg-yellow-100 dark:bg-yellow-900/20'
     }
@@ -150,17 +192,37 @@ const Dashboard = () => {
                             </p>
                             
                             {/* Progress Bar */}
-                            <div className="flex items-center space-x-3">
+                            <div className="flex items-center space-x-3 mb-2">
                               <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                                 <div
-                                  className="bg-gradient-to-r from-primary-500 to-secondary-500 h-2 rounded-full"
-                                  style={{ width: `${enrollment.progress || 0}%` }}
+                                  className="bg-gradient-to-r from-primary-500 to-secondary-500 h-2 rounded-full transition-all duration-300"
+                                  style={{ width: `${enrollment.calculatedProgress || 0}%` }}
                                 />
                               </div>
-                              <span className="text-sm text-gray-600 dark:text-gray-300">
-                                {enrollment.progress || 0}%
+                              <span className="text-sm text-gray-600 dark:text-gray-300 font-medium">
+                                {enrollment.calculatedProgress || 0}%
                               </span>
                             </div>
+                            
+                            {/* Progress Details */}
+                            <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+                              <span>
+                                {enrollment.completedLessons || 0} of {enrollment.totalLessons || 0} lessons
+                                {enrollment.totalAssessments > 0 && (
+                                  <span> + {enrollment.totalAssessments} assessments</span>
+                                )}
+                              </span>
+                              <span>
+                                {enrollment.hoursSpent > 0 ? `${enrollment.hoursSpent}h studied` : 'Not started'}
+                              </span>
+                            </div>
+                            
+                            {/* Content Breakdown */}
+                            {enrollment.totalContent > enrollment.totalLessons && (
+                              <div className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                                Progress weighted by content duration
+                              </div>
+                            )}
                           </div>
                           
                           <div className="ml-4">
@@ -231,24 +293,29 @@ const Dashboard = () => {
                   Recent Activity
                 </h3>
                 <div className="space-y-3">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                    <span className="text-sm text-gray-600 dark:text-gray-300">
-                      Completed lesson: Introduction to Cybersecurity
-                    </span>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                    <span className="text-sm text-gray-600 dark:text-gray-300">
-                      Started course: Ethical Hacking Fundamentals
-                    </span>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                    <span className="text-sm text-gray-600 dark:text-gray-300">
-                      Earned certificate: Network Security Basics
-                    </span>
-                  </div>
+                  {recentActivity.length > 0 ? (
+                    recentActivity.map((activity) => (
+                      <div key={activity.id} className="flex items-center space-x-3">
+                        <div className={`w-2 h-2 rounded-full ${
+                          activity.type === 'completed' ? 'bg-green-500' : 'bg-blue-500'
+                        }`}></div>
+                        <div className="flex-1">
+                          <span className="text-sm text-gray-600 dark:text-gray-300">
+                            {activity.type === 'completed' ? 'Completed' : 'Started'} lesson: {activity.title}
+                          </span>
+                          <div className="text-xs text-gray-400 dark:text-gray-500">
+                            in {activity.course}
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-4">
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        No recent activity yet. Start learning to see your progress here!
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

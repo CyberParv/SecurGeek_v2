@@ -1,5 +1,4 @@
 import { Link } from 'react-router-dom'
-import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Shield, Mail, Phone, MapPin, ArrowRight, Heart } from 'lucide-react'
 
@@ -64,7 +63,7 @@ const Footer = () => {
               Your trusted partner in cybersecurity training and awareness for SMEs. Building the next generation of security professionals.
             </p>
             <div className="flex space-x-4">
-              {['twitter', 'linkedin', 'github'].map((social, index) => (
+              {['twitter', 'linkedin', 'github'].map((social) => (
                 <motion.a
                   key={social}
                   href="#"
@@ -173,12 +172,15 @@ const Footer = () => {
         >
           <p className="text-gray-400 flex items-center justify-center space-x-2">
             <span>© 2024 SecurGeek. Made with</span>
-            <motion.div
+            <span>
+              <motion.span
               animate={{ scale: [1, 1.2, 1] }}
               transition={{ duration: 1, repeat: Infinity, ease: "easeInOut" }}
+                style={{ display: 'inline-block' }}
             >
               <Heart className="h-4 w-4 text-red-500 fill-current" />
-            </motion.div>
+              </motion.span>
+            </span>
             <span>for cybersecurity professionals.</span>
           </p>
         </motion.div>

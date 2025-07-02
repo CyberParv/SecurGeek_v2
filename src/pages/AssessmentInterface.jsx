@@ -166,6 +166,21 @@ const AssessmentInterface = () => {
   const handleSubmitAssessment = async () => {
     setIsSubmitting(true)
     try {
+      // Validate that all questions are answered
+      const unansweredQuestions = questions.filter(question => {
+        const userAnswer = answers[question.id]
+        if (question.question_type === 'multiple_correct') {
+          return !userAnswer || userAnswer.length === 0
+        }
+        return !userAnswer || (typeof userAnswer === 'string' && userAnswer.trim() === '')
+      })
+
+      if (unansweredQuestions.length > 0) {
+        toast.error(`Please answer all questions. ${unansweredQuestions.length} question(s) remaining.`)
+        setIsSubmitting(false)
+        return
+      }
+
       const { earnedPoints, totalPoints } = calculateScore()
       const score = totalPoints > 0 ? Math.round((earnedPoints / totalPoints) * 100) : 0
       const passed = score >= (assessment.passing_score || 70)
@@ -201,6 +216,38 @@ const AssessmentInterface = () => {
 
       if (attemptError) throw attemptError
 
+      // If passed, automatically mark assessment as completed in progress tracking
+      if (passed) {
+        try {
+          // Create a progress entry for the assessment to mark it as completed
+          const { error: progressError } = await supabase
+            .from('progress')
+            .upsert({
+              enrollment_id: enrollment.id,
+              lesson_id: assessmentId, // Use assessment ID as lesson_id for tracking
+              completed: true,
+              progress: 100,
+              time_spent_minutes: assessment.time_limit_minutes ? 
+                Math.ceil((assessment.time_limit_minutes * 60 - timeRemaining) / 60) : 0,
+              completed_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            })
+
+          if (progressError) {
+            console.error('Error updating assessment progress:', progressError)
+            // Don't throw here, just log the error as the main submission was successful
+          } else {
+            console.log('Assessment automatically marked as completed in progress tracking')
+          }
+
+          // Update overall enrollment progress
+          await updateEnrollmentProgress(enrollment.id)
+        } catch (progressUpdateError) {
+          console.error('Error updating progress after assessment completion:', progressUpdateError)
+          // Don't throw here, assessment was still saved successfully
+        }
+      }
+
       setResults({
         score,
         passed,
@@ -211,7 +258,7 @@ const AssessmentInterface = () => {
       setIsCompleted(true)
       
       if (passed) {
-        toast.success('Congratulations! You passed the assessment!')
+        toast.success('Congratulations! You passed the assessment and it has been marked as completed!')
       } else {
         toast.error('You did not pass this time. Keep studying and try again!')
       }
@@ -220,6 +267,97 @@ const AssessmentInterface = () => {
       toast.error('Failed to submit assessment')
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  // Helper function to update enrollment progress (copied from courseSlice)
+  const updateEnrollmentProgress = async (enrollmentId) => {
+    try {
+      // Get enrollment with course content
+      const { data: enrollment, error: enrollmentError } = await supabase
+        .from('enrollments')
+        .select(`
+          course_id,
+          course:courses(
+            lessons:lessons(id, duration_minutes, order_index),
+            assessments:assessments(id, time_limit_minutes, order_index)
+          )
+        `)
+        .eq('id', enrollmentId)
+        .single()
+
+      if (enrollmentError) throw enrollmentError
+
+      // Get all progress for this enrollment (lessons and assessments)
+      const { data: progressData, error: progressError } = await supabase
+        .from('progress')
+        .select('lesson_id, completed, progress, time_spent_minutes')
+        .eq('enrollment_id', enrollmentId)
+
+      if (progressError) throw progressError
+
+      // Get assessment attempts for this enrollment
+      const { data: assessmentAttempts, error: attemptError } = await supabase
+        .from('assessment_attempts')
+        .select('assessment_id, passed, score, completed_at')
+        .eq('enrollment_id', enrollmentId)
+
+      if (attemptError) throw attemptError
+
+      const lessons = enrollment.course?.lessons || []
+      const assessments = enrollment.course?.assessments || []
+      
+      // Calculate total weighted time for all content
+      let totalWeightedTime = 0
+      let completedWeightedTime = 0
+      
+      // Process lessons with their duration as weight
+      lessons.forEach(lesson => {
+        const lessonWeight = lesson.duration_minutes || 10 // Default 10 minutes if no duration
+        totalWeightedTime += lessonWeight
+        
+        const lessonProgress = progressData?.find(p => p.lesson_id === lesson.id)
+        if (lessonProgress?.completed) {
+          completedWeightedTime += lessonWeight
+        } else if (lessonProgress?.progress > 0) {
+          // Partial progress weighted by completion percentage
+          completedWeightedTime += lessonWeight * (lessonProgress.progress / 100)
+        }
+      })
+      
+      // Process assessments with their time limit as weight
+      assessments.forEach(assessment => {
+        const assessmentWeight = assessment.time_limit_minutes || 30 // Default 30 minutes if no time limit
+        totalWeightedTime += assessmentWeight
+        
+        const attempt = assessmentAttempts?.find(a => a.assessment_id === assessment.id && a.completed_at)
+        if (attempt?.passed) {
+          completedWeightedTime += assessmentWeight
+        } else if (attempt?.score > 0) {
+          // Partial credit for incomplete but attempted assessments
+          completedWeightedTime += assessmentWeight * (attempt.score / 100)
+        }
+      })
+
+      // Calculate overall progress percentage
+      const overallProgress = totalWeightedTime > 0 ? 
+        Math.round((completedWeightedTime / totalWeightedTime) * 100) : 0
+
+      // Update enrollment progress
+      const { error: updateError } = await supabase
+        .from('enrollments')
+        .update({
+          progress: overallProgress,
+          completed_at: overallProgress === 100 ? new Date().toISOString() : null,
+          last_accessed_at: new Date().toISOString()
+        })
+        .eq('id', enrollmentId)
+
+      if (updateError) throw updateError
+      
+      console.log(`Updated enrollment ${enrollmentId} progress: ${overallProgress}% (${completedWeightedTime}/${totalWeightedTime} weighted minutes)`)
+    } catch (error) {
+      console.error('Error updating enrollment progress:', error)
     }
   }
 
@@ -271,7 +409,16 @@ const AssessmentInterface = () => {
     setTimeRemaining(assessment?.time_limit_minutes ? assessment.time_limit_minutes * 60 : null)
   }
 
+  const isAnswered = (question) => {
+    const userAnswer = answers[question.id]
+    if (question.question_type === 'multiple_correct') {
+      return userAnswer && userAnswer.length > 0
+    }
+    return userAnswer && (typeof userAnswer !== 'string' || userAnswer.trim() !== '')
+  }
+
   const renderQuestionContent = (question) => {
+
     if (question.question_type === 'multiple_choice') {
       return (
         <div className="space-y-3">
@@ -287,6 +434,7 @@ const AssessmentInterface = () => {
                 checked={answers[question.id] === option}
                 onChange={(e) => handleAnswerChange(question.id, e.target.value)}
                 className="w-4 h-4 text-primary-600 focus:ring-primary-500"
+                required
               />
               <span className="text-gray-900 dark:text-white">{option}</span>
             </label>
@@ -502,7 +650,7 @@ const AssessmentInterface = () => {
               </div>
 
               {assessment.instructions && (
-                <div className="mb-8">
+                <div className="mb-6">
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
                     Instructions
                   </h3>
@@ -513,6 +661,24 @@ const AssessmentInterface = () => {
                   </div>
                 </div>
               )}
+
+              {/* Important Notice */}
+              <div className="mb-8">
+                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+                  <div className="flex items-start space-x-3">
+                    <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <h4 className="text-sm font-semibold text-amber-800 dark:text-amber-200 mb-1">
+                        Important Notice
+                      </h4>
+                      <p className="text-sm text-amber-700 dark:text-amber-300">
+                        All questions are required and must be answered before you can submit the assessment. 
+                        You can navigate back and forth between questions to review your answers.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
 
               <div className="text-center">
                 <button
@@ -543,9 +709,17 @@ const AssessmentInterface = () => {
               <h1 className="text-xl font-bold text-gray-900 dark:text-white">
                 {assessment.title}
               </h1>
-              <p className="text-sm text-gray-600 dark:text-gray-300">
-                Question {currentQuestionIndex + 1} of {questions.length}
-              </p>
+              <div className="text-sm text-gray-600 dark:text-gray-300">
+                <div>Question {currentQuestionIndex + 1} of {questions.length}</div>
+                <div className="flex items-center space-x-2 mt-1">
+                  <span>{questions.filter(q => isAnswered(q)).length} answered</span>
+                  {questions.filter(q => !isAnswered(q)).length > 0 && (
+                    <span className="text-red-500 text-xs">
+                      • {questions.filter(q => !isAnswered(q)).length} remaining
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
             <div className="flex items-center space-x-4">
               {timeRemaining !== null && (
@@ -593,9 +767,22 @@ const AssessmentInterface = () => {
                 className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8"
               >
                 <div className="mb-6">
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-                    {currentQuestion?.question_text}
-                  </h2>
+                  <div className="flex items-start justify-between mb-4">
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex-1">
+                      {currentQuestion?.question_text}
+                    </h2>
+                    <div className="flex items-center space-x-2 ml-4">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400">
+                        Required
+                      </span>
+                      {!isAnswered(currentQuestion) && (
+                        <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" title="Answer required"></div>
+                      )}
+                      {isAnswered(currentQuestion) && (
+                        <div className="w-3 h-3 bg-green-500 rounded-full" title="Answered"></div>
+                      )}
+                    </div>
+                  </div>
                   
                   {renderQuestionContent(currentQuestion)}
                 </div>

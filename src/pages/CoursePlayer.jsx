@@ -8,7 +8,6 @@ import {
   FileText,
   MessageSquare,
   CheckCircle,
-  Lock,
   Award,
   ChevronDown,
   ChevronRight,
@@ -31,14 +30,22 @@ const CoursePlayer = () => {
   const [collapsedSections, setCollapsedSections] = useState({})
   const [progress, setProgress] = useState({})
   const [enrollment, setEnrollment] = useState(null)
+  const [resources, setResources] = useState([])
 
   useEffect(() => {
     if (id) {
       dispatch(fetchCourseById(id))
       fetchCourseSections()
       fetchUserProgress()
+      fetchResources()
     }
   }, [dispatch, id])
+
+  useEffect(() => {
+    if (currentLesson?.id) {
+      fetchResources()
+    }
+  }, [currentLesson?.id])
 
   const fetchCourseSections = async () => {
     try {
@@ -100,7 +107,7 @@ const CoursePlayer = () => {
       if (enrollmentError) throw enrollmentError
       setEnrollment(enrollmentData)
 
-      // Get progress for all lessons
+      // Get progress for all lessons and assessments
       const { data: progressData, error: progressError } = await supabase
         .from('progress')
         .select('*')
@@ -108,13 +115,52 @@ const CoursePlayer = () => {
 
       if (progressError) throw progressError
 
+      // Get assessment attempts for this enrollment
+      const { data: assessmentAttempts, error: attemptError } = await supabase
+        .from('assessment_attempts')
+        .select('assessment_id, passed, score, completed_at')
+        .eq('enrollment_id', enrollmentData.id)
+        .eq('passed', true) // Only get passed attempts
+
+      if (attemptError) throw attemptError
+
       const progressMap = {}
       progressData?.forEach(p => {
         progressMap[p.lesson_id] = p
       })
+
+      // Add assessment completion status to progress map
+      assessmentAttempts?.forEach(attempt => {
+        if (attempt.passed) {
+          progressMap[attempt.assessment_id] = {
+            completed: true,
+            progress: 100,
+            assessment_score: attempt.score,
+            completed_at: attempt.completed_at
+          }
+        }
+      })
+
       setProgress(progressMap)
     } catch (error) {
       console.error('Error fetching user progress:', error)
+    }
+  }
+
+  const fetchResources = async () => {
+    if (!currentLesson?.id) return
+
+    try {
+      const { data: resourcesData, error } = await supabase
+        .from('resources')
+        .select('*')
+        .eq('lesson_id', currentLesson.id)
+        .order('created_at')
+
+      if (error) throw error
+      setResources(resourcesData || [])
+    } catch (error) {
+      console.error('Error fetching resources:', error)
     }
   }
 
@@ -376,7 +422,7 @@ const CoursePlayer = () => {
           {/* Video Player */}
           <div className="flex-1">
             <div className="w-full flex justify-center">
-              <div className="w-full max-w-3xl">
+              <div className="w-full max-w-5xl">
                 {currentLesson?.video_url ? (
                   <VideoPlayer
                     videoUrl={currentLesson.video_url}
@@ -481,15 +527,34 @@ const CoursePlayer = () => {
                 
                 {activeTab === 'resources' && (
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
-                      <div className="flex items-center space-x-3">
-                        <FileText className="h-5 w-5 text-gray-400" />
-                        <span className="text-gray-900 dark:text-white">Lesson Notes.pdf</span>
+                    {resources.length > 0 ? (
+                      resources.map((resource) => (
+                        <div key={resource.id} className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+                          <div className="flex items-center space-x-3">
+                            <FileText className="h-5 w-5 text-gray-400" />
+                            <div>
+                              <span className="text-gray-900 dark:text-white font-medium">{resource.title}</span>
+                              {resource.description && (
+                                <p className="text-sm text-gray-500 dark:text-gray-400">{resource.description}</p>
+                              )}
+                            </div>
+                          </div>
+                          <button 
+                            onClick={() => window.open(resource.file_url, '_blank')}
+                            className="text-primary-600 hover:text-primary-700 dark:text-primary-400 font-medium transition-colors"
+                          >
+                            Download
+                          </button>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-8">
+                        <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                        <p className="text-gray-500 dark:text-gray-400">
+                          No resources available for this lesson
+                        </p>
                       </div>
-                      <button className="text-primary-600 hover:text-primary-700 dark:text-primary-400">
-                        Download
-                      </button>
-                    </div>
+                    )}
                   </div>
                 )}
                 

@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useSelector, useDispatch } from 'react-redux'
-import { motion } from 'framer-motion'
 import { Helmet } from 'react-helmet-async'
 import { 
   Play, 
@@ -9,17 +8,13 @@ import {
   Users, 
   Star, 
   BookOpen, 
-  Award, 
-  ChevronRight,
-  Download,
-  Share2,
-  Heart,
   CheckCircle
 } from 'lucide-react'
 import { fetchCourseById, enrollInCourse, fetchEnrolledCourses } from '../store/slices/courseSlice'
 import { openModal } from '../store/slices/uiSlice'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import toast from 'react-hot-toast'
+import { supabase } from '../lib/supabase'
 
 const CourseDetail = () => {
   const { id } = useParams()
@@ -28,12 +23,72 @@ const CourseDetail = () => {
   const { currentCourse, enrolledCourses, loading, error } = useSelector(state => state.courses)
   const { user, isAuthenticated } = useSelector(state => state.auth)
   const [isEnrolled, setIsEnrolled] = useState(false)
+  const [realTimeDuration, setRealTimeDuration] = useState(null)
 
   useEffect(() => {
     if (id) {
       dispatch(fetchCourseById(id))
+      calculateRealTimeDuration(id)
     }
   }, [dispatch, id])
+
+  // Calculate realtime duration based on actual content
+  const calculateRealTimeDuration = async (courseId) => {
+    try {
+      // Fetch lessons with their durations
+      const { data: lessons, error: lessonsError } = await supabase
+        .from('lessons')
+        .select('duration_minutes')
+        .eq('course_id', courseId)
+
+      if (lessonsError) throw lessonsError
+
+      // Fetch assessments with their time limits
+      const { data: assessments, error: assessmentsError } = await supabase
+        .from('assessments')
+        .select('time_limit_minutes')
+        .eq('course_id', courseId)
+
+      if (assessmentsError) throw assessmentsError
+
+      // Calculate total duration
+      const lessonMinutes = (lessons || []).reduce((total, lesson) => {
+        return total + (lesson.duration_minutes || 10) // Default 10 minutes if no duration
+      }, 0)
+
+      const assessmentMinutes = (assessments || []).reduce((total, assessment) => {
+        return total + (assessment.time_limit_minutes || 30) // Default 30 minutes if no time limit
+      }, 0)
+
+      const totalMinutes = lessonMinutes + assessmentMinutes
+      const totalHours = Math.round((totalMinutes / 60) * 10) / 10 // Round to 1 decimal place
+
+      // Format duration string
+      let durationString = ''
+      if (totalHours >= 1) {
+        const hours = Math.floor(totalHours)
+        const minutes = Math.round((totalHours - hours) * 60)
+        if (minutes > 0) {
+          durationString = `${hours}h ${minutes}m`
+        } else {
+          durationString = `${hours}h`
+        }
+      } else {
+        durationString = `${totalMinutes}m`
+      }
+
+      setRealTimeDuration({
+        totalMinutes,
+        totalHours,
+        formatted: durationString,
+        lessonCount: lessons?.length || 0,
+        assessmentCount: assessments?.length || 0
+      })
+    } catch (error) {
+      console.error('Error calculating realtime duration:', error)
+      setRealTimeDuration(null)
+    }
+  }
 
   // Fetch enrolled courses when user is authenticated
   useEffect(() => {
@@ -148,7 +203,15 @@ const CourseDetail = () => {
                 <div className="flex items-center space-x-6 mb-6 text-sm text-gray-500 dark:text-gray-400">
                   <div className="flex items-center space-x-1">
                     <Clock className="h-4 w-4" />
-                    <span>{currentCourse.duration || '10 hours'}</span>
+                    <span>
+                      {realTimeDuration ? (
+                        <span title={`${realTimeDuration.totalMinutes} total minutes`}>
+                          {realTimeDuration.formatted}
+                        </span>
+                      ) : (
+                        'Calculating...'
+                      )}
+                    </span>
                   </div>
                   <div className="flex items-center space-x-1">
                     <Users className="h-4 w-4" />
@@ -156,7 +219,15 @@ const CourseDetail = () => {
                   </div>
                   <div className="flex items-center space-x-1">
                     <BookOpen className="h-4 w-4" />
-                    <span>{currentCourse.lessons?.length || 0} lessons</span>
+                    <span>
+                      {realTimeDuration ? (
+                        <span title={`${realTimeDuration.lessonCount} lessons + ${realTimeDuration.assessmentCount} assessments`}>
+                          {realTimeDuration.lessonCount + realTimeDuration.assessmentCount} items
+                        </span>
+                      ) : (
+                        `${currentCourse.lessons?.length || 0} lessons`
+                      )}
+                    </span>
                   </div>
                 </div>
                 

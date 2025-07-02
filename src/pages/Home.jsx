@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useSelector, useDispatch } from 'react-redux'
 import { motion } from 'framer-motion'
 import { Helmet } from 'react-helmet-async'
@@ -617,39 +617,34 @@ const WhyChooseUs = () => {
               <div className="absolute -bottom-2 -right-2 w-16 h-16 bg-gradient-to-r from-secondary-500 to-cyber-500 rounded-xl opacity-20 blur-lg"></div>
               
               <motion.div 
-                className="relative aspect-video bg-gradient-to-br from-primary-500 to-secondary-500 rounded-2xl flex items-center justify-center shadow-xl overflow-hidden"
+                className="relative aspect-video rounded-2xl overflow-hidden shadow-xl"
                 whileHover={{ scale: 1.01 }}
                 transition={{ type: "spring", stiffness: 400 }}
               >
-                {/* Animated background pattern */}
-                <div className="absolute inset-0 bg-grid-pattern opacity-10"></div>
-                
-                <div className="relative text-center text-white z-10">
-                  <motion.div
-                    animate={{ 
-                      scale: [1, 1.02, 1],
-                      rotate: [0, 1, -1, 0]
-                    }}
-                    transition={{ 
-                      duration: 6,
-                      repeat: Infinity,
-                      ease: "easeInOut"
-                    }}
-                  >
-                    <img 
-                      src="https://images.pexels.com/photos/3184465/pexels-photo-3184465.jpeg?auto=compress&cs=tinysrgb&w=800" 
-                      alt="Corporate Training Session"
-                      className="w-full h-64 md:h-80 lg:h-96 object-cover rounded-2xl"
-                      style={{ minHeight: '16rem', maxHeight: '28rem' }}
-                    />
-                  </motion.div>
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent rounded-2xl flex items-end justify-center p-6">
-                    <div className="text-center">
+                <motion.div
+                  className="relative w-full h-full"
+                  animate={{ 
+                    scale: [1, 1.02, 1],
+                    rotate: [0, 1, -1, 0]
+                  }}
+                  transition={{ 
+                    duration: 6,
+                    repeat: Infinity,
+                    ease: "easeInOut"
+                  }}
+                >
+                  <img 
+                    src="https://images.pexels.com/photos/3184465/pexels-photo-3184465.jpeg?auto=compress&cs=tinysrgb&w=800" 
+                    alt="Corporate Training Session"
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent flex items-end justify-center p-6">
+                    <div className="text-center text-white">
                       <h3 className="text-xl font-bold mb-2 drop-shadow-lg">Corporate Training Session</h3>
                       <p className="text-lg opacity-95 drop-shadow-lg">Interactive cybersecurity workshops</p>
                     </div>
                   </div>
-                </div>
+                </motion.div>
               </motion.div>
             </div>
           </motion.div>

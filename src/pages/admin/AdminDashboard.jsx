@@ -11,20 +11,14 @@ import {
   TrendingUp,
   Plus,
   Search,
-  Filter,
-  MoreVertical,
   Edit,
   Trash2,
-  Eye,
   X,
   Save,
-  Upload,
   Settings,
   RefreshCw,
   Crown,
   Shield,
-  UserCheck,
-  UserX,
   Mail,
   Phone,
   MapPin,
@@ -1070,7 +1064,18 @@ const AdminAnalytics = () => {
 
   useEffect(() => {
     dispatch(fetchDetailedAnalytics())
+    
+    // Set up auto-refresh every 30 seconds for realtime data
+    const interval = setInterval(() => {
+      dispatch(fetchDetailedAnalytics())
+    }, 30000)
+
+    return () => clearInterval(interval)
   }, [dispatch])
+
+  const handleRefresh = () => {
+    dispatch(fetchDetailedAnalytics())
+  }
 
   if (loading) {
     return (
@@ -1083,12 +1088,24 @@ const AdminAnalytics = () => {
   return (
     <div>
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-          Analytics Dashboard
-        </h1>
-        <p className="text-gray-600 dark:text-gray-300">
-          Detailed insights and trends for your platform
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+              Analytics Dashboard
+            </h1>
+            <p className="text-gray-600 dark:text-gray-300">
+              Detailed insights and trends for your platform (Auto-refreshes every 30s)
+            </p>
+          </div>
+          <button
+            onClick={handleRefresh}
+            disabled={loading}
+            className="flex items-center space-x-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            <span>Refresh</span>
+          </button>
+        </div>
       </div>
 
       {/* Analytics Content */}
@@ -1108,9 +1125,18 @@ const AdminAnalytics = () => {
 
         {/* Course Popularity */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            Most Popular Courses
-          </h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Most Popular Courses
+            </h3>
+            <button
+              onClick={() => dispatch(fetchDetailedAnalytics())}
+              className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+              title="Refresh data"
+            >
+              <RefreshCw className="h-4 w-4" />
+            </button>
+          </div>
           <div className="space-y-3">
             {analytics.coursePopularity?.slice(0, 5).map((course, index) => (
               <div key={course.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
@@ -1118,13 +1144,25 @@ const AdminAnalytics = () => {
                   <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
                     #{index + 1}
                   </span>
-                  <span className="text-sm font-medium text-gray-900 dark:text-white">
-                    {course.title}
-                  </span>
+                  <div>
+                    <span className="text-sm font-medium text-gray-900 dark:text-white block">
+                      {course.title}
+                    </span>
+                    {course.duration && (
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        Duration: {course.duration}
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <span className="text-sm text-gray-600 dark:text-gray-300">
-                  {course.enrollments?.[0]?.count || 0} students
-                </span>
+                <div className="text-right">
+                  <span className="text-sm font-semibold text-primary-600 dark:text-primary-400">
+                    {course.enrollments} students
+                  </span>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                    Live count
+                  </div>
+                </div>
               </div>
             )) || (
               <p className="text-gray-500 dark:text-gray-400 text-center py-8">

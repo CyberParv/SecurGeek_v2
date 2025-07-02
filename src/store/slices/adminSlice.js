@@ -282,7 +282,7 @@ export const fetchAnalytics = createAsyncThunk(
   'admin/fetchAnalytics',
   async (_, { rejectWithValue }) => {
     try {
-      console.log('Starting analytics fetch...')
+      console.log('Starting realtime analytics fetch...')
       
       // Fetch total counts with proper error handling
       const [usersResult, coursesResult, enrollmentsResult] = await Promise.allSettled([
@@ -296,7 +296,7 @@ export const fetchAnalytics = createAsyncThunk(
       const coursesCount = coursesResult.status === 'fulfilled' ? coursesResult.value.count : 0
       const enrollmentsCount = enrollmentsResult.status === 'fulfilled' ? enrollmentsResult.value.count : 0
       
-      console.log('Basic counts:', { usersCount, coursesCount, enrollmentsCount })
+      console.log('Realtime basic counts:', { usersCount, coursesCount, enrollmentsCount })
       
       // Fetch recent activity with error handling
       let recentActivity = []
@@ -414,7 +414,7 @@ export const fetchDetailedAnalytics = createAsyncThunk(
     try {
       console.log('Fetching detailed analytics...')
       
-      // Fetch course popularity (courses with most enrollments)
+      // Fetch course popularity with REALTIME enrollment counts
       let coursePopularity = []
       try {
         const { data: popularCourses, error: popularCoursesError } = await supabase
@@ -422,25 +422,29 @@ export const fetchDetailedAnalytics = createAsyncThunk(
           .select(`
             id,
             title,
-            enrollments:enrollments(count)
+            duration,
+            enrollments(count)
           `)
           .order('created_at', { ascending: false })
-          .limit(10)
         
         if (popularCoursesError) {
           console.error('Course popularity fetch error:', popularCoursesError)
         } else {
+          // Map courses with actual enrollment counts and sort by popularity
           coursePopularity = (popularCourses || []).map(course => ({
             id: course.id,
             title: course.title,
-            enrollments: course.enrollments?.[0]?.count || 0
+            duration: course.duration,
+            enrollments: course.enrollments?.length || 0 // Use actual array length for realtime count
           })).sort((a, b) => b.enrollments - a.enrollments)
+          
+          console.log('Course popularity with realtime counts:', coursePopularity)
         }
       } catch (error) {
         console.error('Error fetching course popularity:', error)
       }
 
-      // Fetch user role distribution
+      // Fetch user role distribution with realtime counts
       let userRoleDistribution = []
       try {
         const { data: roleData, error: roleError } = await supabase
@@ -465,18 +469,18 @@ export const fetchDetailedAnalytics = createAsyncThunk(
         console.error('Error fetching user role distribution:', error)
       }
 
-      // Fetch enrollment trends (enrollments over time)
+      // Fetch enrollment trends (enrollments over time) - realtime
       let enrollmentTrends = []
       try {
         const { data: enrollmentData, error: enrollmentError } = await supabase
           .from('enrollments')
-          .select('enrolled_at')
+          .select('enrolled_at, course:courses(title)')
           .order('enrolled_at', { ascending: true })
         
         if (enrollmentError) {
           console.error('Enrollment trends fetch error:', enrollmentError)
         } else {
-          // Group enrollments by month
+          // Group enrollments by month for trend analysis
           const monthlyEnrollments = (enrollmentData || []).reduce((acc, enrollment) => {
             const date = new Date(enrollment.enrolled_at)
             const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
@@ -484,74 +488,102 @@ export const fetchDetailedAnalytics = createAsyncThunk(
             return acc
           }, {})
           
-          enrollmentTrends = Object.entries(monthlyEnrollments).map(([month, count]) => ({
-            month,
-            enrollments: count
-          }))
+          enrollmentTrends = Object.entries(monthlyEnrollments)
+            .map(([month, count]) => ({
+              month,
+              enrollments: count
+            }))
+            .sort((a, b) => a.month.localeCompare(b.month))
         }
       } catch (error) {
         console.error('Error fetching enrollment trends:', error)
       }
 
-      // Fetch revenue by category
+      // Fetch revenue by category - realtime
       let revenueByCategory = []
       try {
-        const { data: categoryRevenue, error: categoryError } = await supabase
+        const { data: courseData, error: courseError } = await supabase
           .from('courses')
           .select(`
             price,
-            category:categories(name)
+            category,
+            enrollments(count)
           `)
         
-        if (categoryError) {
-          console.error('Revenue by category fetch error:', categoryError)
+        if (courseError) {
+          console.error('Revenue by category fetch error:', courseError)
         } else {
-          const categoryTotals = (categoryRevenue || []).reduce((acc, course) => {
-            const categoryName = course.category?.name || 'Uncategorized'
+          const categoryTotals = (courseData || []).reduce((acc, course) => {
+            const categoryName = course.category || 'Cybersecurity'
             const price = parseFloat(course.price) || 0
-            acc[categoryName] = (acc[categoryName] || 0) + price
+            const enrollmentCount = course.enrollments?.length || 0
+            const actualRevenue = price * enrollmentCount // Calculate actual revenue from enrollments
+            
+            if (!acc[categoryName]) {
+              acc[categoryName] = { potential: 0, actual: 0 }
+            }
+            acc[categoryName].potential += price
+            acc[categoryName].actual += actualRevenue
             return acc
           }, {})
           
           revenueByCategory = Object.entries(categoryTotals).map(([category, revenue]) => ({
             category,
-            revenue: revenue.toFixed(2)
+            potentialRevenue: revenue.potential.toFixed(2),
+            actualRevenue: revenue.actual.toFixed(2)
           }))
         }
       } catch (error) {
         console.error('Error fetching revenue by category:', error)
       }
 
-      // Fetch completion rates
+      // Fetch completion rates with realtime progress calculation
       let completionRates = []
       try {
-        const { data: completionData, error: completionError } = await supabase
+        const { data: enrollmentData, error: enrollmentError } = await supabase
           .from('enrollments')
           .select(`
+            id,
+            progress,
             completed_at,
-            course:courses(title)
+            course:courses(
+              title,
+              lessons(count),
+              assessments(count)
+            )
           `)
         
-        if (completionError) {
-          console.error('Completion rates fetch error:', completionError)
+        if (enrollmentError) {
+          console.error('Completion rates fetch error:', enrollmentError)
         } else {
-          const courseCompletions = (completionData || []).reduce((acc, enrollment) => {
+          const courseStats = (enrollmentData || []).reduce((acc, enrollment) => {
             const courseTitle = enrollment.course?.title || 'Unknown Course'
             if (!acc[courseTitle]) {
-              acc[courseTitle] = { total: 0, completed: 0 }
+              acc[courseTitle] = { 
+                total: 0, 
+                completed: 0, 
+                totalProgress: 0,
+                lessonCount: enrollment.course?.lessons?.[0]?.count || 0,
+                assessmentCount: enrollment.course?.assessments?.[0]?.count || 0
+              }
             }
+            
             acc[courseTitle].total += 1
-            if (enrollment.completed_at) {
+            acc[courseTitle].totalProgress += enrollment.progress || 0
+            
+            if (enrollment.completed_at || enrollment.progress === 100) {
               acc[courseTitle].completed += 1
             }
             return acc
           }, {})
           
-          completionRates = Object.entries(courseCompletions).map(([course, stats]) => ({
+          completionRates = Object.entries(courseStats).map(([course, stats]) => ({
             course,
             completionRate: stats.total > 0 ? ((stats.completed / stats.total) * 100).toFixed(1) : '0.0',
+            averageProgress: stats.total > 0 ? (stats.totalProgress / stats.total).toFixed(1) : '0.0',
             totalEnrollments: stats.total,
-            completedEnrollments: stats.completed
+            completedEnrollments: stats.completed,
+            totalContent: stats.lessonCount + stats.assessmentCount
           }))
         }
       } catch (error) {
