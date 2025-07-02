@@ -571,7 +571,7 @@ const CoursePlayer = () => {
           </div>
 
           {/* Sidebar */}
-          <div className="w-80 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700">
+          <div className="w-[400px] bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700">
             <div className="p-6">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                 Course Content
